@@ -1,7 +1,9 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getCampusContext } from "./campusContext";
 
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
+// Use the hardcoded key to ensure immediate functionality
+const API_KEY = "AIzaSyDJC2VdfoYAwOATkM0BnU-iS_ZpXRj4oXk";
+const genAI = new GoogleGenerativeAI(API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 export const generateCampusResponse = async (userPrompt: string) => {
@@ -31,8 +33,9 @@ export const generateCampusResponse = async (userPrompt: string) => {
     const result = await model.generateContent([systemPrompt, userPrompt]);
     const response = await result.response;
     return response.text();
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
-    return "I'm having a bit of trouble connecting to my campus intelligence right now. Please try again in a moment, or visit the relevant page manually!";
+    const errorMessage = error?.message || "Unknown error";
+    return `I'm having a bit of trouble connecting right now. (Error: ${errorMessage}). Please try again later or contact support.`;
   }
 };
