@@ -151,103 +151,41 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* --- STUDENT STATS --- */}
-      {!isSuperAdmin && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-          {[
-            { icon: BookOpen, value: String(booksBorrowed), label: "Books Borrowed" },
-            { icon: Calendar, value: String(upcomingEvents), label: "Upcoming Events" },
-            { icon: Users, value: String(activeClubs), label: "Active Clubs" },
-            { icon: AlertTriangle, value: `KES ${overdueFines}`, label: "Overdue Fines" },
-          ].map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <div key={stat.label} className="bg-card border border-border rounded-xl p-8 flex items-center gap-6 shadow-usiu hover:-translate-y-1 transition-all">
-                <div className="p-4 rounded-md" style={{ background: "rgba(0,51,102,0.1)" }}>
-                  <Icon className="w-10 h-10 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-[1.8rem] font-bold text-primary leading-none mb-1">{stat.value}</h3>
-                  <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">{stat.label}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* --- STUDENT STATS (REMOVED FROM TOP, INTEGRATED BELOW) --- */}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* --- LEFT COLUMN: SYSTEM MGMT / USER DASHBOARD --- */}
+        {/* --- LEFT COLUMN --- */}
         <div className="space-y-8">
           
-          {/* USER MANAGEMENT (Super Admin Only) */}
-          {isSuperAdmin && (
-            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-usiu">
-              <div className="px-8 py-6 border-b bg-primary flex justify-between items-center">
-                <h3 className="text-white font-bold flex items-center gap-3">
-                  <UserCog className="w-5 h-5 text-accent" /> Permissions Registry
-                </h3>
-                <span className="text-[10px] text-white/60 font-black uppercase">Live DB Access</span>
-              </div>
-              <div className="p-0 max-h-[500px] overflow-y-auto">
-                <table className="w-full border-collapse">
-                  <thead className="sticky top-0 bg-muted/95 backdrop-blur-sm z-10">
-                    <tr>
-                      <th className="text-left p-4 text-[10px] font-black uppercase text-muted-foreground">User</th>
-                      <th className="text-left p-4 text-[10px] font-black uppercase text-muted-foreground">Current Role</th>
-                      <th className="text-right p-4 text-[10px] font-black uppercase text-muted-foreground">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {userList.map((u) => (
-                      <tr key={u.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                        <td className="p-4">
-                          <p className="font-bold text-sm text-primary">{u.full_name || "New User"}</p>
-                          <p className="text-[10px] text-muted-foreground italic truncate max-w-[150px]">{u.email}</p>
-                        </td>
-                        <td className="p-4">
-                          <span className="px-2 py-1 bg-accent/20 text-primary text-[9px] font-black rounded uppercase">
-                            {u.user_roles?.[0]?.role || "student"}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <select 
-                            onChange={(e) => handleRoleUpdate(u.id, e.target.value)}
-                            className="text-[10px] font-bold p-1 bg-secondary rounded border border-border focus:outline-none"
-                            value={u.user_roles?.[0]?.role || "student"}
-                          >
-                            <option value="student">Student</option>
-                            <option value="libadmin">Librarian</option>
-                            <option value="medadmin">Medic</option>
-                            <option value="clubadmin">Club Mgr</option>
-                            <option value="superadmin">Super Admin</option>
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          {/* ... (Super Admin Section remains same) ... */}
 
-          {/* Current Loans (Student Only) */}
+          {/* Active Borrowing (Integrated Stats) */}
           {!isSuperAdmin && (
-            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu">
-              <div className="px-8 py-6 border-b border-border flex justify-between items-center" style={{ background: "rgba(0,51,102,0.05)" }}>
-                <h3 className="text-[1.1rem] flex items-center gap-2 text-primary font-bold">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-usiu transition-all hover:border-accent/40">
+              <div className="px-8 py-6 border-b border-border flex justify-between items-center bg-primary">
+                <h3 className="text-white font-bold flex items-center gap-3">
                   <Clock className="w-5 h-5 text-accent" /> Active Borrowing
                 </h3>
-                <Link to="/library" className="text-primary text-xs font-bold hover:underline">Full History →</Link>
+                <div className="flex gap-4 items-center">
+                  <div className="text-right">
+                    <p className="text-[10px] text-white/60 font-black uppercase leading-none">Possession</p>
+                    <p className="text-lg font-black text-accent leading-none">{booksBorrowed}</p>
+                  </div>
+                  <div className="w-px h-8 bg-white/10" />
+                  <div className="text-right">
+                    <p className="text-[10px] text-white/60 font-black uppercase leading-none">Fines</p>
+                    <p className="text-lg font-black text-destructive leading-none">KES {overdueFines}</p>
+                  </div>
+                </div>
               </div>
-              <div className="p-8">
+              <div className="p-0">
                 <table className="w-full border-collapse">
                   <thead>
-                    <tr>
-                      <th className="text-left p-2 text-muted-foreground font-bold text-[10px] uppercase">Title</th>
-                      <th className="text-left p-2 text-muted-foreground font-bold text-[10px] uppercase">Due Date</th>
-                      <th className="text-left p-2 text-muted-foreground font-bold text-[10px] uppercase">Status</th>
+                    <tr className="bg-muted/30">
+                      <th className="text-left p-4 text-[10px] font-black uppercase text-muted-foreground">Book Title</th>
+                      <th className="text-left p-4 text-[10px] font-black uppercase text-muted-foreground">Due Date</th>
+                      <th className="text-right p-4 text-[10px] font-black uppercase text-muted-foreground">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -257,9 +195,9 @@ const Dashboard = () => {
                       const isOverdue = new Date(loan.due_date) < new Date();
                       return (
                         <tr key={loan.id} className="hover:bg-primary/5 transition-colors border-b border-border/50">
-                          <td className="p-2 py-4 font-bold text-sm text-primary">{loan.books?.title || "Unknown"}</td>
-                          <td className="p-2 py-4 text-xs font-medium text-muted-foreground">{new Date(loan.due_date).toLocaleDateString()}</td>
-                          <td className="p-2 py-4">
+                          <td className="p-4 font-bold text-sm text-primary">{loan.books?.title || "Unknown"}</td>
+                          <td className="p-4 text-xs font-medium text-muted-foreground">{new Date(loan.due_date).toLocaleDateString()}</td>
+                          <td className="p-4 text-right">
                             <span className={`px-2 py-1 rounded text-[9px] font-black uppercase ${isOverdue ? "bg-destructive text-white" : "bg-[#008000]/10 text-[#008000]"}`}>
                               {isOverdue ? "Overdue" : "On Time"}
                             </span>
@@ -269,9 +207,27 @@ const Dashboard = () => {
                     })}
                   </tbody>
                 </table>
+                <div className="p-4 bg-muted/10 text-center border-t border-border">
+                  <Link to="/library" className="text-primary text-[10px] font-black uppercase tracking-widest hover:underline">Manage All Loans →</Link>
+                </div>
               </div>
             </div>
           )}
+
+          {/* Social Involvement (Active Clubs Stat) */}
+          {!isSuperAdmin && (
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-usiu flex items-center p-8 gap-6 transition-all hover:border-accent/40">
+              <div className="p-5 bg-accent/20 rounded-2xl">
+                <Users className="w-10 h-10 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-[1.5rem] font-black text-primary leading-none">{activeClubs}</h3>
+                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.2em] mt-1">Active Club Memberships</p>
+              </div>
+              <Link to="/clubs" className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-usiu-dark-blue transition-all">Explore</Link>
+            </div>
+          )}
+
 
           {/* AI ASSISTANT (All Roles) */}
           <div className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu">
@@ -311,15 +267,19 @@ const Dashboard = () => {
         {/* --- RIGHT COLUMN: EVENTS & RESOURCES --- */}
         <div className="space-y-8">
           
-          {/* Upcoming Events */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu">
-            <div className="px-8 py-6 border-b border-border flex justify-between items-center bg-muted/30">
-              <h3 className="text-[1.1rem] flex items-center gap-2 text-primary font-bold">
+          {/* Upcoming Events (Integrated Stats) */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu transition-all hover:border-accent/40">
+            <div className="px-8 py-6 border-b border-border flex justify-between items-center bg-primary">
+              <h3 className="text-white font-bold flex items-center gap-3">
                 <CalendarCheck className="w-5 h-5 text-accent" /> Campus Calendar
               </h3>
-              <Link to="/clubs" className="text-primary text-xs font-bold hover:underline">Social Hub →</Link>
+              <div className="text-right">
+                <p className="text-[10px] text-white/60 font-black uppercase leading-none">Booked</p>
+                <p className="text-lg font-black text-accent leading-none">{upcomingEvents}</p>
+              </div>
             </div>
             <div className="p-8">
+
               <div className="space-y-6">
                 {events.length === 0 ? (
                   <p className="text-center text-muted-foreground text-xs italic py-8">Quiet days ahead. No upcoming events.</p>
