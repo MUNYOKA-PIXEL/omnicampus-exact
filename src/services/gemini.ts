@@ -34,9 +34,11 @@ export const generateCampusResponse = async (userPrompt: string) => {
     const response = await result.response;
     return response.text();
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
+    console.error("Gemini API Error Detail:", error);
     
-    // Diagnostic: Try to see what's actually available
-    return `I'm having trouble connecting. (Error: ${error?.message || "Unknown"}). If this persists, please ensure your API key has the "Generative Language API" enabled in Google Cloud Console.`;
+    let detail = error?.message || "Unknown error";
+    if (detail.includes("404")) detail = "Model not found (404). This usually means the API key doesn't have access to this specific model name.";
+    
+    return `I'm having trouble connecting. (Detail: ${detail}). If this persists, please ensure your API key has the "Generative Language API" enabled in Google Cloud Console.`;
   }
 };
