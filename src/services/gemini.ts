@@ -5,8 +5,8 @@ import { getCampusContext } from "./campusContext";
 const API_KEY = "AIzaSyCJs-l4ul-am84TTW4MT9WlP47ttG95c3s";
 const genAI = new GoogleGenerativeAI(API_KEY);
 
-// List of models to try in order of preference
-const MODELS_TO_TRY = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"];
+// List of models to try in order of preference (explicit model paths)
+const MODELS_TO_TRY = ["models/gemini-1.5-flash", "models/gemini-1.5-pro", "models/gemini-pro"];
 
 export const generateCampusResponse = async (userPrompt: string) => {
   const context = await getCampusContext();
@@ -34,26 +34,24 @@ export const generateCampusResponse = async (userPrompt: string) => {
   // Try each model until one succeeds
   for (const modelName of MODELS_TO_TRY) {
     try {
-      console.log(`Attempting Gemini with model: ${modelName}`);
+      console.log(`[Omni-Intelligence] Attempting with model: ${modelName}`);
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent([systemPrompt, userPrompt]);
       const response = await result.response;
       return response.text();
     } catch (error: any) {
-      console.error(`Error with model ${modelName}:`, error);
+      const errorMessage = error?.message || "Unknown error";
+      console.error(`[Omni-Intelligence] Error with ${modelName}:`, errorMessage);
       
-      // If it's NOT a 404, it might be a different issue (like quota or safety), 
-      // but if it IS a 404, we continue to the next model in the list.
-      if (!error?.message?.includes("404")) {
-        return `I encountered an error: ${error?.message || "Connection failed"}. Please try again.`;
+      // If the error isn't a 404, report it directly (could be rate limit, etc.)
+      if (!errorMessage.includes("404")) {
+        return `I encountered an issue (Error: ${errorMessage}). Please try again in a few seconds.`;
       }
       
-      // If we've tried all models and still get 404s
+      // If we've reached the end of the list and all failed with 404
       if (modelName === MODELS_TO_TRY[MODELS_TO_TRY.length - 1]) {
-        return "I'm having trouble finding a compatible AI model. Please ensure the 'Generative Language API' is enabled in your Google AI Studio or Cloud Console.";
+        return "I'm having trouble finding a compatible AI model. This usually means the API key is restricted or the 'Generative Language API' is disabled in your Google Cloud Console.";
       }
-      
-      console.log(`Model ${modelName} not found, trying next...`);
     }
   }
   
