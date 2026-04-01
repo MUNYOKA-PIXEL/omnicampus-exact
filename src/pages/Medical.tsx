@@ -198,7 +198,7 @@ const Medical = () => {
 
       {/* Emergency Banner */}
       {!isAdmin && (
-        <div className="bg-destructive rounded-xl p-5 mb-8 text-primary-foreground animate-pulse shadow-lg border-2 border-accent/20">
+        <div className="bg-destructive rounded-xl p-5 mb-8 text-primary-foreground shadow-lg border-2 border-accent/20">
           <div className="flex items-center gap-5 flex-wrap">
             <AlertTriangle className="w-12 h-12 text-accent" />
             <div>
@@ -211,6 +211,7 @@ const Medical = () => {
           </div>
         </div>
       )}
+
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
