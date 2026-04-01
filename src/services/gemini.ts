@@ -1,14 +1,14 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getCampusContext } from "./campusContext";
 
-// Try gemini-1.5-flash-latest with models/ prefix for v1beta compatibility
+// Standard model name
 const API_KEY = "AIzaSyDJC2VdfoYAwOATkM0BnU-iS_ZpXRj4oXk";
 const genAI = new GoogleGenerativeAI(API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
 export const generateCampusResponse = async (userPrompt: string) => {
   try {
     const context = await getCampusContext();
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const systemPrompt = `
       You are Omni-Intelligence, the official AI assistant for OmniCampus at USIU-Africa. 
@@ -35,7 +35,8 @@ export const generateCampusResponse = async (userPrompt: string) => {
     return response.text();
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    const errorMessage = error?.message || "Unknown error";
-    return `I'm having a bit of trouble connecting right now. (Error: ${errorMessage}). Please try again later or contact support.`;
+    
+    // Diagnostic: Try to see what's actually available
+    return `I'm having trouble connecting. (Error: ${error?.message || "Unknown"}). If this persists, please ensure your API key has the "Generative Language API" enabled in Google Cloud Console.`;
   }
 };
