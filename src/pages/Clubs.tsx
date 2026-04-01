@@ -95,7 +95,10 @@ const Clubs = () => {
       if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
       else toast({ title: "Membership Cancelled" });
     } else {
-      const { error } = await supabase.from("club_memberships").insert({ club_id: clubId, user_id: user.id });
+      const { error } = await supabase.from("club_memberships").insert({ 
+        club_id: clubId, 
+        user_id: user.id 
+      });
       if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
       else toast({ title: "Welcome to the Club!" });
     }
@@ -110,12 +113,17 @@ const Clubs = () => {
       await supabase.from("event_rsvps").delete().eq("event_id", eventId).eq("user_id", user.id);
       toast({ title: "RSVP Cancelled" });
     } else {
-      await supabase.from("event_rsvps").insert({ event_id: eventId, user_id: user.id });
-      toast({ title: "RSVP Confirmed!" });
+      const { error } = await supabase.from("event_rsvps").insert({ 
+        event_id: eventId, 
+        user_id: user.id 
+      });
+      if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+      else toast({ title: "RSVP Confirmed!" });
     }
     setActionLoading(null);
     fetchData();
   };
+
 
   const handleCreateClub = async () => {
     setSubmitting(true);
