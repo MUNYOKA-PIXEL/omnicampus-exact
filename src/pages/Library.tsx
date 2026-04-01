@@ -181,14 +181,19 @@ const Library = () => {
 
   const handleRequestSubmit = async () => {
     if (!user || !reqTitle.trim()) return;
+    
     setSubmitting(true);
+    // Explicitly use user.id to match RLS auth.uid() check
     const { error } = await supabase.from("book_requests").insert({
       title: reqTitle.trim(),
       author: reqAuthor.trim() || null,
       reason: reqReason.trim() || null,
       user_id: user.id,
+      status: 'pending'
     });
+    
     setSubmitting(false);
+
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
