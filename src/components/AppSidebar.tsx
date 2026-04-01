@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   BookOpen,
@@ -7,6 +7,7 @@ import {
   Stethoscope,
   LogOut,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -18,6 +19,13 @@ const navItems = [
 
 const AppSidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login");
+  };
 
   return (
     <aside className="w-[280px] bg-primary text-primary-foreground flex flex-col fixed h-screen overflow-y-auto z-[100]" style={{ boxShadow: "2px 0 10px rgba(0,0,0,0.1)" }}>
@@ -50,16 +58,16 @@ const AppSidebar = () => {
       </nav>
       <div className="p-8 border-t border-primary-foreground/20">
         <div className="text-primary-foreground text-sm">
-          <p className="my-1">John Doe</p>
-          <p className="my-1 text-primary-foreground/60">Student ID: STU001</p>
+          <p className="my-1">{profile?.full_name || "User"}</p>
+          <p className="my-1 text-primary-foreground/60">Student ID: {profile?.student_id || "N/A"}</p>
         </div>
-        <Link
-          to="/login"
+        <button
+          onClick={handleLogout}
           className="flex items-center gap-2 mt-4 text-primary-foreground/80 hover:text-accent transition-colors duration-300"
         >
           <LogOut className="w-4 h-4" />
           <span>Logout</span>
-        </Link>
+        </button>
       </div>
     </aside>
   );
