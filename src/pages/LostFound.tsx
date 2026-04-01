@@ -49,14 +49,14 @@ const LostFound = () => {
 
   useEffect(() => { fetchItems(); }, []);
 
-  const handleSubmitReport = async (type: "Lost" | "Found") => {
+  const handleSubmitReport = async (type: "lost" | "found") => {
     if (!user || !itemName.trim()) {
       toast({ title: "Error", description: "Item name is required", variant: "destructive" });
       return;
     }
     setSubmitting(true);
     const { error } = await supabase.from("lost_found_items").insert({
-      type,
+      type, // Now sending 'lost' or 'found' lowercase
       item_name: itemName.trim(),
       description: itemDesc.trim() || null,
       location: itemLocation.trim() || null,
@@ -65,11 +65,10 @@ const LostFound = () => {
       status: 'searching'
     });
     setSubmitting(false);
-
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Success", description: `${type} item report submitted!` });
+      toast({ title: "Success", description: `${type.charAt(0).toUpperCase() + type.slice(1)} item report submitted!` });
       setItemName(""); setItemDesc(""); setItemLocation(""); setItemDate("");
       setShowLostModal(false); setShowFoundModal(false);
       fetchItems();
@@ -78,8 +77,8 @@ const LostFound = () => {
 
   const getFilteredItems = () => {
     let filtered = items;
-    if (activeTab === "lost") filtered = items.filter(i => i.type === "Lost");
-    else if (activeTab === "found") filtered = items.filter(i => i.type === "Found");
+    if (activeTab === "lost") filtered = items.filter(i => i.type.toLowerCase() === "lost");
+    else if (activeTab === "found") filtered = items.filter(i => i.type.toLowerCase() === "found");
     else if (activeTab === "matches") filtered = items.filter(i => i.status === "matched");
     else if (activeTab === "my") filtered = items.filter(i => i.user_id === user?.id);
 
@@ -90,8 +89,9 @@ const LostFound = () => {
   };
 
   const filteredItems = getFilteredItems();
-  const lostCount = items.filter(i => i.type === "Lost").length;
-  const foundCount = items.filter(i => i.type === "Found").length;
+  const lostCount = items.filter(i => i.type.toLowerCase() === "lost").length;
+  const foundCount = items.filter(i => i.type.toLowerCase() === "found").length;
+
   const matchedCount = items.filter(i => i.status === "matched").length;
   const recoveryRate = items.length > 0 ? Math.round((matchedCount / items.length) * 100) : 0;
 
@@ -227,7 +227,7 @@ const LostFound = () => {
               <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Description</label><textarea value={itemDesc} onChange={e => setItemDesc(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent min-h-[100px] resize-y" placeholder="Describe the item" /></div>
               <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Last Seen Location</label><input value={itemLocation} onChange={e => setItemLocation(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="Where did you last see it?" /></div>
               <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Date Lost</label><input type="date" value={itemDate} onChange={e => setItemDate(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" /></div>
-              <button onClick={() => handleSubmitReport("Lost")} disabled={submitting} className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50">
+              <button onClick={() => handleSubmitReport("lost")} disabled={submitting} className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50">
                 {submitting ? "Submitting..." : "Submit Report"}
               </button>
             </div>
@@ -248,9 +248,10 @@ const LostFound = () => {
               <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Description</label><textarea value={itemDesc} onChange={e => setItemDesc(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent min-h-[100px] resize-y" placeholder="Describe the item" /></div>
               <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Found Location</label><input value={itemLocation} onChange={e => setItemLocation(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="Where did you find it?" /></div>
               <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Date Found</label><input type="date" value={itemDate} onChange={e => setItemDate(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" /></div>
-              <button onClick={() => handleSubmitReport("Found")} disabled={submitting} className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50">
+              <button onClick={() => handleSubmitReport("found")} disabled={submitting} className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50">
                 {submitting ? "Submitting..." : "Submit Report"}
               </button>
+
             </div>
           </div>
         </div>
