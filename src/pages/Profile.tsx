@@ -66,11 +66,13 @@ const Profile = () => {
 
       const file = e.target.files[0];
       const fileExt = file.name.split(".").pop();
-      const filePath = `${user?.id}-${Math.random()}.${fileExt}`;
+      // Changed filePath format to 'user_id/timestamp.ext' to align with storage RLS folder expectations
+      const filePath = `${user?.id}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(filePath, file);
+
 
       if (uploadError) throw uploadError;
 
