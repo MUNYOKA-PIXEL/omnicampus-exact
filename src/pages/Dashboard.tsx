@@ -54,6 +54,8 @@ const Dashboard = () => {
     else if (input.includes("lost") || input.includes("found")) response = "Go to Lost & Found to report lost or found items on campus.";
     else if (input.includes("medical") || input.includes("doctor") || input.includes("appointment")) response = "Visit Medical Services to book appointments and view available doctors.";
     else if (input.includes("hello") || input.includes("hi")) response = `Hi ${profile?.full_name || "there"}! How can I help you today?`;
+    else if (input.includes("how many clubs") || input.includes("clubs count")) response = `There are currently ${activeClubs} clubs you are a member of, but many more to join!`;
+    else if (input.includes("how many books") || input.includes("books count")) response = `You have ${booksBorrowed} books currently borrowed.`;
 
     setChatMessages((prev) => [
       ...prev,
@@ -62,6 +64,7 @@ const Dashboard = () => {
     ]);
     setChatInput("");
   };
+
 
   return (
     <DashboardLayout>

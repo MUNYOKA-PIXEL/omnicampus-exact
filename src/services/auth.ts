@@ -28,7 +28,11 @@ export const signUpUser = async (
     email,
     password,
     options: {
-      data: { full_name: metadata.full_name },
+      data: { 
+        full_name: metadata.full_name,
+        student_id: metadata.student_id,
+        phone: metadata.phone
+      },
       emailRedirectTo: window.location.origin,
     },
   });
@@ -45,6 +49,14 @@ export const signUpUser = async (
   }
 
   return { error: error as Error | null };
+};
+
+export const updateUserProfile = async (userId: string, updates: any) => {
+  const { error } = await supabase
+    .from("profiles")
+    .update(updates)
+    .eq("id", userId);
+  return { error };
 };
 
 export const signInUser = async (email: string, password: string) => {

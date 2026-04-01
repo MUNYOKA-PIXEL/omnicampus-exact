@@ -23,6 +23,8 @@ interface AuthContextType {
   signUp: (email: string, password: string, metadata: { full_name: string; student_id?: string; phone?: string }) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,6 +43,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     ]);
     setRole(userRole);
     setProfile(userProfile);
+  };
+
+  const refreshProfile = async () => {
+    if (user) {
+      const userProfile = await fetchUserProfile(user.id);
+      setProfile(userProfile);
+    }
+  };
+
+  const updateProfile = async (updates: Partial<UserProfile>) => {
+    if (!user) return { error: new Error("User not found") };
+    const { error } = await supabase.from("profiles").update(updates).eq("id", user.id);
+    if (!error) {
+      await refreshProfile();
+    }
+    return { error: error as Error | null };
   };
 
   useEffect(() => {
@@ -85,11 +103,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       signUp: signUpUser,
       signIn: signInUser,
       signOut: handleSignOut,
+      updateProfile,
+      refreshProfile,
     }}>
       {children}
     </AuthContext.Provider>
   );
 };
+
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

@@ -31,6 +31,14 @@ interface Appointment {
   doctors?: { name: string; specialty: string };
 }
 
+interface Resource {
+  id: string;
+  title: string;
+  file_url: string | null;
+  category: string;
+  created_at: string;
+}
+
 const Medical = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("appointments");
@@ -38,6 +46,7 @@ const Medical = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [medications, setMedications] = useState<Medication[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Appointment form
@@ -47,25 +56,21 @@ const Medical = () => {
   const [apptReason, setApptReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const resources = [
-    { title: "Mental Health Guide", description: "Tips for managing stress and anxiety during exams", icon: "🧠" },
-    { title: "Nutrition Tips", description: "Healthy eating habits for busy students", icon: "🥗" },
-    { title: "Exercise Programs", description: "Stay fit with campus workout routines", icon: "💪" },
-    { title: "First Aid Basics", description: "Essential first aid knowledge for emergencies", icon: "🩹" },
-  ];
-
   const fetchData = async () => {
     setLoading(true);
-    const [docsRes, medsRes, apptsRes] = await Promise.all([
+    const [docsRes, medsRes, apptsRes, resourcesRes] = await Promise.all([
       supabase.from("doctors").select("*").order("name"),
       supabase.from("medications").select("*").order("name"),
       user ? supabase.from("appointments").select("*, doctors(name, specialty)").eq("user_id", user.id).order("date", { ascending: false }) : Promise.resolve({ data: [] }),
+      supabase.from("resources").select("*").eq("category", "medical").order("created_at", { ascending: false }),
     ]);
     if (docsRes.data) setDoctors(docsRes.data);
     if (medsRes.data) setMedications(medsRes.data);
     if (apptsRes.data) setAppointments(apptsRes.data as Appointment[]);
+    if (resourcesRes.data) setResources(resourcesRes.data);
     setLoading(false);
   };
+
 
   useEffect(() => { fetchData(); }, [user]);
 
@@ -285,21 +290,31 @@ const Medical = () => {
       {/* Resources */}
       {!loading && activeTab === "resources" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
-          {resources.map((res) => (
-            <div key={res.title} className="bg-card border border-border rounded-xl p-5 text-center shadow-usiu hover:-translate-y-1 hover:border-accent transition-all duration-300">
-              <span className="text-4xl block mb-4">{res.icon}</span>
+          {resources.length === 0 ? (
+            <div className="col-span-4 text-center text-muted-foreground py-12">No health resources available</div>
+          ) : resources.map((res) => (
+            <div key={res.id} className="bg-card border border-border rounded-xl p-5 text-center shadow-usiu hover:-translate-y-1 hover:border-accent transition-all duration-300">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-6 h-6 text-primary" />
+              </div>
               <h4 className="font-semibold text-primary mb-3">{res.title}</h4>
-              <p className="text-muted-foreground text-sm mb-4">{res.description}</p>
-              <button
-                onClick={() => toast({ title: res.title, description: res.description })}
-                className="w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-usiu-dark-blue transition-colors"
-              >
-                Learn More
-              </button>
+              {res.file_url ? (
+                <a
+                  href={res.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-primary font-medium hover:text-accent transition-colors"
+                >
+                  View Resource →
+                </a>
+              ) : (
+                <p className="text-sm text-muted-foreground">No file available</p>
+              )}
             </div>
           ))}
         </div>
       )}
+
 
       {/* Book Appointment Modal */}
       {showBookModal && (

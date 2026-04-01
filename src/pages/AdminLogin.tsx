@@ -3,40 +3,50 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { fetchUserRole } from "@/services/auth";
-import { getRoleDashboardPath } from "@/types/roles";
+import { getRoleDashboardPath, isAdminRole } from "@/types/roles";
 import { supabase } from "@/integrations/supabase/client";
 
-const Login = () => {
-  const [studentId, setStudentId] = useState("");
-  const [studentPassword, setStudentPassword] = useState("");
+const AdminLogin = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { signIn } = useAuth();
 
-  const handleStudentLogin = async (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    const { error } = await signIn(studentId, studentPassword);
+    const { error } = await signIn(email, password);
     
     if (error) {
       setIsLoading(false);
-      toast({ title: "Login Failed", description: error.message, variant: "destructive" });
-    } else {
-      // Verify user is a student
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const role = await fetchUserRole(user.id);
-        if (role === "student" || role === "superadmin") {
-          setIsLoading(false);
-          navigate("/dashboard");
-        } else {
-          setIsLoading(false);
-          // Allow admins but maybe redirect them? 
-          // Actually, let's just let them in if they are admins, 
-          // but the prompt says "ONE unified admin login page".
-          navigate(getRoleDashboardPath(role));
-        }
+      toast({ 
+        title: "Login Failed", 
+        description: "Invalid credentials. Please check your email and password.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    // Verify user has an admin role
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const role = await fetchUserRole(user.id);
+      setIsLoading(false);
+      
+      if (isAdminRole(role)) {
+        toast({ title: "Login Successful", description: `Welcome back, Admin!` });
+        navigate(getRoleDashboardPath(role));
+      } else {
+        await supabase.auth.signOut();
+        toast({ 
+          title: "Access Denied", 
+          description: "This page is for administrators only. Students should use the regular login page.", 
+          variant: "destructive" 
+        });
       }
+    } else {
+      setIsLoading(false);
     }
   };
 
@@ -47,19 +57,20 @@ const Login = () => {
           {/* Header */}
           <div className="bg-primary text-center p-8 border-b border-border">
             <h1 className="text-[2rem] font-bold text-accent mb-1">OmniCampus</h1>
-            <p className="text-primary-foreground/90">Welcome back! Please login to your student account</p>
+            <h2 className="text-xl text-primary-foreground font-semibold">Admin Login</h2>
+            <p className="text-primary-foreground/90 mt-2">Access your administrative dashboard</p>
           </div>
 
-          {/* Student Login */}
+          {/* Admin Login Form */}
           <div className="p-8">
-            <form onSubmit={handleStudentLogin}>
+            <form onSubmit={handleAdminLogin}>
               <div className="mb-6">
-                <label className="block mb-2 text-muted-foreground text-sm font-medium">Student ID / Email</label>
+                <label className="block mb-2 text-muted-foreground text-sm font-medium">Admin Email</label>
                 <input
-                  type="text"
-                  value={studentId}
-                  onChange={(e) => setStudentId(e.target.value)}
-                  placeholder="Enter your student ID or email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your admin email"
                   required
                   className="w-full px-4 py-3 bg-card border border-border rounded-md text-foreground focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(255,215,0,0.1)] transition-all duration-300"
                 />
@@ -68,8 +79,8 @@ const Login = () => {
                 <label className="block mb-2 text-muted-foreground text-sm font-medium">Password</label>
                 <input
                   type="password"
-                  value={studentPassword}
-                  onChange={(e) => setStudentPassword(e.target.value)}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   required
                   className="w-full px-4 py-3 bg-card border border-border rounded-md text-foreground focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(255,215,0,0.1)] transition-all duration-300"
@@ -80,25 +91,19 @@ const Login = () => {
                 disabled={isLoading}
                 className="w-full bg-primary text-primary-foreground py-4 rounded-md font-medium text-base hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50"
               >
-                {isLoading ? "Logging in..." : "Login"}
+                {isLoading ? "Authenticating..." : "Admin Login"}
               </button>
             </form>
+            
             <div className="text-center mt-6 pt-6 border-t border-border text-muted-foreground">
-              <p>
-                Don't have an account?{" "}
-                <Link to="/register" className="text-primary font-medium">
-                  Register here
-                </Link>
-              </p>
-              <p className="mt-4 text-sm">
-                Are you an administrator?{" "}
-                <Link to="/admin/login" className="text-primary font-medium">
-                  Admin Login
+              <p className="text-sm">
+                If you are a student, please use the{" "}
+                <Link to="/login" className="text-primary font-medium">
+                  Student Login
                 </Link>
               </p>
             </div>
           </div>
-
 
           {/* Footer */}
           <div className="text-center p-6 border-t border-border text-muted-foreground">
@@ -112,4 +117,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default AdminLogin;

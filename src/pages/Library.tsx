@@ -33,6 +33,14 @@ interface BookRequest {
   created_at: string;
 }
 
+interface Resource {
+  id: string;
+  title: string;
+  file_url: string | null;
+  category: string;
+  created_at: string;
+}
+
 const Library = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("available");
@@ -42,6 +50,7 @@ const Library = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [loans, setLoans] = useState<BookLoan[]>([]);
   const [requests, setRequests] = useState<BookRequest[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [borrowing, setBorrowing] = useState<string | null>(null);
 
@@ -53,16 +62,19 @@ const Library = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const [booksRes, loansRes, requestsRes] = await Promise.all([
+    const [booksRes, loansRes, requestsRes, resourcesRes] = await Promise.all([
       supabase.from("books").select("*").order("title"),
       user ? supabase.from("book_loans").select("*, books(title)").eq("user_id", user.id).order("issue_date", { ascending: false }) : Promise.resolve({ data: [] }),
       user ? supabase.from("book_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
+      supabase.from("resources").select("*").eq("category", "library").order("created_at", { ascending: false }),
     ]);
     if (booksRes.data) setBooks(booksRes.data);
     if (loansRes.data) setLoans(loansRes.data as BookLoan[]);
     if (requestsRes.data) setRequests(requestsRes.data as BookRequest[]);
+    if (resourcesRes.data) setResources(resourcesRes.data);
     setLoading(false);
   };
+
 
   useEffect(() => { fetchData(); }, [user]);
 
@@ -152,7 +164,7 @@ const Library = () => {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-8 border-b-2 border-primary pb-1">
-        {["available", "myLoans", "myRequests"].map((tab) => (
+        {["available", "myLoans", "myRequests", "resources"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -162,7 +174,7 @@ const Library = () => {
                 : "text-muted-foreground hover:text-primary"
             }`}
           >
-            {tab === "available" ? "Available Books" : tab === "myLoans" ? "My Loans" : "My Requests"}
+            {tab === "available" ? "Available Books" : tab === "myLoans" ? "My Loans" : tab === "myRequests" ? "My Requests" : "Resources"}
           </button>
         ))}
       </div>
@@ -171,6 +183,7 @@ const Library = () => {
 
       {/* Available Books */}
       {!loading && activeTab === "available" && (
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredBooks.map((book) => (
             <div key={book.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu hover:-translate-y-1 hover:shadow-usiu-card hover:border-accent transition-all duration-300">
@@ -271,6 +284,38 @@ const Library = () => {
           </tbody>
         </table>
       )}
+
+      {/* Resources */}
+      {!loading && activeTab === "resources" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {resources.length === 0 ? (
+            <div className="col-span-3 text-center text-muted-foreground py-12">No library resources available</div>
+          ) : resources.map((res) => (
+            <div key={res.id} className="bg-card border border-border rounded-xl p-6 shadow-usiu hover:-translate-y-1 hover:border-accent transition-all duration-300">
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 bg-primary/10 rounded-lg">
+                  <BookOpen className="w-6 h-6 text-primary" />
+                </div>
+                <span className="text-[0.7rem] text-muted-foreground">{new Date(res.created_at).toLocaleDateString()}</span>
+              </div>
+              <h3 className="text-lg font-semibold text-primary mb-2">{res.title}</h3>
+              {res.file_url ? (
+                <a
+                  href={res.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-primary font-medium hover:text-accent transition-colors"
+                >
+                  Download Resource →
+                </a>
+              ) : (
+                <p className="text-sm text-muted-foreground">No file available</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
 
       {/* Request Modal */}
       {showModal && (

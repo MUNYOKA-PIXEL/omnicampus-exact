@@ -7,12 +7,14 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index.tsx";
 import Login from "./pages/Login.tsx";
+import AdminLogin from "./pages/AdminLogin.tsx";
 import Register from "./pages/Register.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import Library from "./pages/Library.tsx";
 import LostFound from "./pages/LostFound.tsx";
 import Clubs from "./pages/Clubs.tsx";
 import Medical from "./pages/Medical.tsx";
+import Profile from "./pages/Profile.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -27,10 +29,16 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/register" element={<Register />} />
             <Route path="/dashboard" element={
               <ProtectedRoute allowedRoles={["superadmin", "student"]}>
                 <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute allowedRoles={["superadmin", "student", "libadmin", "medadmin", "clubadmin"]}>
+                <Profile />
               </ProtectedRoute>
             } />
             <Route path="/library" element={

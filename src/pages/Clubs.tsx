@@ -26,11 +26,20 @@ interface ClubEvent {
   clubs?: { name: string };
 }
 
+interface Resource {
+  id: string;
+  title: string;
+  file_url: string | null;
+  category: string;
+  created_at: string;
+}
+
 const Clubs = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("all-clubs");
   const [clubs, setClubs] = useState<Club[]>([]);
   const [events, setEvents] = useState<ClubEvent[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [myClubIds, setMyClubIds] = useState<string[]>([]);
   const [myRsvpIds, setMyRsvpIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,12 +47,13 @@ const Clubs = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const [clubsRes, eventsRes, membershipsRes, rsvpsRes, countsRes] = await Promise.all([
+    const [clubsRes, eventsRes, membershipsRes, rsvpsRes, countsRes, resourcesRes] = await Promise.all([
       supabase.from("clubs").select("*").order("name"),
       supabase.from("club_events").select("*, clubs(name)").order("date"),
       user ? supabase.from("club_memberships").select("club_id").eq("user_id", user.id) : Promise.resolve({ data: [] }),
       user ? supabase.from("event_rsvps").select("event_id").eq("user_id", user.id) : Promise.resolve({ data: [] }),
       supabase.from("club_memberships").select("club_id"),
+      supabase.from("resources").select("*").eq("category", "club").order("created_at", { ascending: false }),
     ]);
 
     // Count members per club
@@ -54,8 +64,10 @@ const Clubs = () => {
     if (eventsRes.data) setEvents(eventsRes.data as ClubEvent[]);
     if (membershipsRes.data) setMyClubIds((membershipsRes.data as any[]).map(m => m.club_id));
     if (rsvpsRes.data) setMyRsvpIds((rsvpsRes.data as any[]).map(r => r.event_id));
+    if (resourcesRes.data) setResources(resourcesRes.data);
     setLoading(false);
   };
+
 
   useEffect(() => { fetchData(); }, [user]);
 
@@ -108,6 +120,7 @@ const Clubs = () => {
           { id: "all-clubs", label: "All Clubs" },
           { id: "my-clubs", label: "My Clubs" },
           { id: "events", label: "Events" },
+          { id: "resources", label: "Resources" },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -124,6 +137,7 @@ const Clubs = () => {
       </div>
 
       {loading && <div className="text-center text-muted-foreground py-12">Loading...</div>}
+
 
       {/* All Clubs */}
       {!loading && activeTab === "all-clubs" && (
@@ -233,8 +247,40 @@ const Clubs = () => {
           {events.length === 0 && <div className="text-center text-muted-foreground py-12">No upcoming events</div>}
         </div>
       )}
+
+      {/* Resources */}
+      {!loading && activeTab === "resources" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {resources.length === 0 ? (
+            <div className="col-span-3 text-center text-muted-foreground py-12">No club resources available</div>
+          ) : resources.map((res) => (
+            <div key={res.id} className="bg-card border border-border rounded-xl p-6 shadow-usiu hover:-translate-y-1 hover:border-accent transition-all duration-300">
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 bg-primary/10 rounded-lg">
+                  <Calendar className="w-6 h-6 text-primary" />
+                </div>
+                <span className="text-[0.7rem] text-muted-foreground">{new Date(res.created_at).toLocaleDateString()}</span>
+              </div>
+              <h3 className="text-lg font-semibold text-primary mb-2">{res.title}</h3>
+              {res.file_url ? (
+                <a
+                  href={res.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-primary font-medium hover:text-accent transition-colors"
+                >
+                  Access Resource →
+                </a>
+              ) : (
+                <p className="text-sm text-muted-foreground">No file available</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </DashboardLayout>
   );
 };
+
 
 export default Clubs;
