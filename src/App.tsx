@@ -28,11 +28,31 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
-            <Route path="/lost-found" element={<ProtectedRoute><LostFound /></ProtectedRoute>} />
-            <Route path="/clubs" element={<ProtectedRoute><Clubs /></ProtectedRoute>} />
-            <Route path="/medical" element={<ProtectedRoute><Medical /></ProtectedRoute>} />
+            <Route path="/dashboard" element={
+              <ProtectedRoute allowedRoles={["superadmin", "student"]}>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/library" element={
+              <ProtectedRoute allowedRoles={["superadmin", "libadmin", "student"]}>
+                <Library />
+              </ProtectedRoute>
+            } />
+            <Route path="/lost-found" element={
+              <ProtectedRoute allowedRoles={["superadmin", "student"]}>
+                <LostFound />
+              </ProtectedRoute>
+            } />
+            <Route path="/clubs" element={
+              <ProtectedRoute allowedRoles={["superadmin", "clubadmin", "student"]}>
+                <Clubs />
+              </ProtectedRoute>
+            } />
+            <Route path="/medical" element={
+              <ProtectedRoute allowedRoles={["superadmin", "medadmin", "student"]}>
+                <Medical />
+              </ProtectedRoute>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
