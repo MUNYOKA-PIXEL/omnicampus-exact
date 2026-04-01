@@ -62,8 +62,10 @@ const LostFound = () => {
       location: itemLocation.trim() || null,
       date_reported: itemDate || new Date().toISOString().split("T")[0],
       user_id: user.id,
+      status: 'searching'
     });
     setSubmitting(false);
+
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
