@@ -222,18 +222,17 @@ const Medical = () => {
         ].map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="bg-card border border-border rounded-xl p-8 flex items-center gap-6 shadow-usiu">
-              <div className="p-4 rounded-md" style={{ background: "rgba(0,51,102,0.1)" }}>
+            <div key={stat.label} className="bg-card border border-border rounded-xl p-8 flex flex-col items-center justify-center text-center shadow-usiu hover:border-accent transition-all">
+              <div className="p-4 rounded-full mb-4" style={{ background: "rgba(0,51,102,0.1)" }}>
                 <Icon className="w-10 h-10 text-primary" />
               </div>
-              <div>
-                <h3 className="text-[1.8rem] font-bold text-primary">{stat.value}</h3>
-                <p className="text-muted-foreground text-sm font-medium uppercase tracking-wider">{stat.label}</p>
-              </div>
+              <h3 className="text-[2.2rem] font-black text-primary leading-none mb-2">{stat.value}</h3>
+              <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.2em]">{stat.label}</p>
             </div>
           );
         })}
       </div>
+
 
       {/* Tabs */}
       <div className="flex gap-1 mb-8 border-b-2 border-primary pb-1 overflow-x-auto">
