@@ -47,15 +47,13 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
+        usiu: {
+          blue: "hsl(var(--usiu-blue))",
+          gold: "hsl(var(--usiu-gold))",
+          red: "hsl(var(--usiu-red))",
+          gray: "hsl(var(--usiu-gray))",
+          "light-gray": "hsl(var(--usiu-light-gray))",
+          "dark-blue": "hsl(var(--usiu-dark-blue))",
         },
       },
       borderRadius: {
@@ -63,27 +61,29 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      boxShadow: {
+        usiu: "var(--shadow)",
+        "usiu-card": "var(--card-shadow)",
+      },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        pulse: {
+          "0%": { boxShadow: "0 0 0 0 rgba(204, 0, 0, 0.7)" },
+          "70%": { boxShadow: "0 0 0 10px rgba(204, 0, 0, 0)" },
+          "100%": { boxShadow: "0 0 0 0 rgba(204, 0, 0, 0)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        pulse: "pulse 2s infinite",
       },
     },
   },
