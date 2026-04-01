@@ -1,15 +1,18 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getCampusContext } from "./campusContext";
 
-// Final refined service for stability
-const API_KEY = "AIzaSyB-VTiRjAw1CRo8-8swn5J50gS5kthaBfE";
+// Use environment variable for security. 
+// DO NOT HARDCODE. Google will revoke keys pushed to public repos.
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 export const generateCampusResponse = async (userPrompt: string) => {
   try {
+    if (!API_KEY) {
+      return "Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env file.";
+    }
+
     const context = await getCampusContext();
-    
-    // Using the most widely available model with default settings
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const systemPrompt = `
@@ -36,13 +39,12 @@ export const generateCampusResponse = async (userPrompt: string) => {
     return response.text();
     
   } catch (error: any) {
-    console.error("[Omni-Intelligence] Connection Error:", error);
+    console.error("[Omni-Intelligence] Error:", error);
     
-    // Provide actionable advice for 404 errors
     if (error?.message?.includes("404")) {
-      return "Model not found (404). This almost always means the 'Generative Language API' is NOT enabled for your API key. Please enable it in Google AI Studio or Google Cloud Console.";
+      return "Model not found (404). Ensure 'Generative Language API' is enabled in Google Cloud and that your API key is valid and NOT revoked.";
     }
     
-    return `Connection Error: ${error?.message || "Something went wrong"}. Please try again later.`;
+    return `Connection Error: ${error?.message || "Something went wrong"}. Please check your configuration.`;
   }
 };
