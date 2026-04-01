@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getCampusContext } from "./campusContext";
 
 // Standard model name
-const API_KEY = "AIzaSyCGSLvRWcYXsQJHchumem_r7UjJSRD1jNE";
+const API_KEY = "AIzaSyB-VTiRjAw1CRo8-8swn5J50gS5kthaBfE";
 
 // Initialize with explicit v1beta version
 const genAI = new GoogleGenerativeAI(API_KEY);
