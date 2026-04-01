@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getCampusContext } from "./campusContext";
 
 // Standard model name
-const API_KEY = "AIzaSyCJs-l4ul-am84TTW4MT9WlP47ttG95c3s";
+const API_KEY = "AIzaSyCGSLvRWcYXsQJHchumem_r7UjJSRD1jNE";
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 // List of models to try in order of preference (explicit model paths)
