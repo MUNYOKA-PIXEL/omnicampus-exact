@@ -8,19 +8,24 @@ import {
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { getRoleLabel } from "@/types/roles";
 
-const navItems = [
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/library", label: "Library", icon: BookOpen },
-  { path: "/lost-found", label: "Lost & Found", icon: Search },
-  { path: "/clubs", label: "Clubs", icon: Users },
-  { path: "/medical", label: "Medical", icon: Stethoscope },
+const allNavItems = [
+  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["superadmin", "student"] },
+  { path: "/library", label: "Library", icon: BookOpen, roles: ["superadmin", "libadmin", "student"] },
+  { path: "/lost-found", label: "Lost & Found", icon: Search, roles: ["superadmin", "student"] },
+  { path: "/clubs", label: "Clubs", icon: Users, roles: ["superadmin", "clubadmin", "student"] },
+  { path: "/medical", label: "Medical", icon: Stethoscope, roles: ["superadmin", "medadmin", "student"] },
 ];
 
 const AppSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
+  const { profile, role, signOut } = useAuth();
+
+  const navItems = allNavItems.filter(
+    (item) => !role || item.roles.includes(role)
+  );
 
   const handleLogout = async () => {
     await signOut();
@@ -59,7 +64,9 @@ const AppSidebar = () => {
       <div className="p-8 border-t border-primary-foreground/20">
         <div className="text-primary-foreground text-sm">
           <p className="my-1">{profile?.full_name || "User"}</p>
-          <p className="my-1 text-primary-foreground/60">Student ID: {profile?.student_id || "N/A"}</p>
+          <p className="my-1 text-primary-foreground/60">
+            {role === "student" ? `Student ID: ${profile?.student_id || "N/A"}` : getRoleLabel(role)}
+          </p>
         </div>
         <button
           onClick={handleLogout}

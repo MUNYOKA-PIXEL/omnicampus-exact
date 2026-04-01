@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { fetchUserRole } from "@/services/auth";
+import { getRoleDashboardPath } from "@/types/roles";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const [activeTab, setActiveTab] = useState<"student" | "admin">("student");
@@ -29,11 +32,25 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
     const { error } = await signIn(adminUsername, adminPassword);
-    setIsLoading(false);
     if (error) {
+      setIsLoading(false);
       toast({ title: "Login Failed", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    // Verify user has an admin role
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const role = await fetchUserRole(user.id);
+      setIsLoading(false);
+      if (role && role !== "student") {
+        navigate(getRoleDashboardPath(role));
+      } else {
+        await supabase.auth.signOut();
+        toast({ title: "Access Denied", description: "This account does not have admin privileges.", variant: "destructive" });
+      }
     } else {
-      navigate("/dashboard");
+      setIsLoading(false);
     }
   };
 
