@@ -1,19 +1,21 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Calendar, Users, AlertTriangle, Clock, CalendarCheck, Bot, Lightbulb, Book, Send, ShieldCheck, UserCog, TrendingUp, Activity, Search, Trash2 } from "lucide-react";
+import { BookOpen, Calendar, Users, AlertTriangle, Clock, CalendarCheck, Bot, Lightbulb, Book, Send, ShieldCheck, UserCog, TrendingUp, Activity, Search, Trash2, Loader2 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { generateCampusResponse } from "@/services/gemini";
 
 const Dashboard = () => {
   const { user, profile, role } = useAuth();
   const isSuperAdmin = role === "superadmin";
   
   const [chatMessages, setChatMessages] = useState([
-    { type: "bot", text: "Hello! I'm your campus assistant. Ask me about library, clubs, lost items, or medical services!" },
+    { type: "bot", text: "Hello! I'm Omni-Intelligence, your campus assistant. Ask me anything about library books, clubs, or medical services!" },
   ]);
   const [chatInput, setChatInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
 
   // Live stats
   const [booksBorrowed, setBooksBorrowed] = useState(0);
@@ -78,24 +80,22 @@ const Dashboard = () => {
     fetchDashboard();
   }, [user, role]);
 
-  const sendMessage = () => {
-    if (!chatInput.trim()) return;
-    const input = chatInput.toLowerCase();
-    let response = "I can help with library, clubs, lost items, and medical services. Try asking about those!";
-    if (input.includes("library") || input.includes("book")) response = "Visit the Library page to browse books, check your loans, or request new books.";
-    else if (input.includes("club")) response = "Check out the Clubs page to join student clubs and RSVP to events!";
-    else if (input.includes("lost") || input.includes("found")) response = "Go to Lost & Found to report lost or found items on campus.";
-    else if (input.includes("medical") || input.includes("doctor") || input.includes("appointment")) response = "Visit Medical Services to book appointments and view available doctors.";
-    else if (input.includes("hello") || input.includes("hi")) response = `Hi ${profile?.full_name || "there"}! How can I help you today?`;
-    else if (input.includes("how many clubs") || input.includes("clubs count")) response = `There are currently ${activeClubs} clubs you are a member of, but many more to join!`;
-    else if (input.includes("how many books") || input.includes("books count")) response = `You have ${booksBorrowed} books currently borrowed.`;
-
-    setChatMessages((prev) => [
-      ...prev,
-      { type: "user", text: chatInput },
-      { type: "bot", text: response },
-    ]);
+  const sendMessage = async () => {
+    if (!chatInput.trim() || isTyping) return;
+    
+    const userMessage = chatInput;
     setChatInput("");
+    setChatMessages((prev) => [...prev, { type: "user", text: userMessage }]);
+    setIsTyping(true);
+
+    try {
+      const response = await generateCampusResponse(userMessage);
+      setChatMessages((prev) => [...prev, { type: "bot", text: response }]);
+    } catch (error) {
+      setChatMessages((prev) => [...prev, { type: "bot", text: "I'm having trouble connecting right now. Please try again later." }]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const handleRoleUpdate = async (userId: string, newRole: string) => {
@@ -249,6 +249,15 @@ const Dashboard = () => {
                       </span>
                     </div>
                   ))}
+                  {isTyping && (
+                    <div className="flex items-start gap-3">
+                      <Bot className="w-4 h-4 text-primary mt-1 shrink-0" />
+                      <div className="bg-card border border-border text-primary px-4 py-3 rounded-2xl shadow-sm flex items-center gap-2">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span className="text-[10px] font-medium italic">Omni is thinking...</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <input

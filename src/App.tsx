@@ -15,6 +15,7 @@ import LostFound from "./pages/LostFound.tsx";
 import Clubs from "./pages/Clubs.tsx";
 import Medical from "./pages/Medical.tsx";
 import Profile from "./pages/Profile.tsx";
+import AIAssistant from "./pages/AIAssistant.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,11 @@ const App = () => (
             <Route path="/medical" element={
               <ProtectedRoute allowedRoles={["superadmin", "medadmin", "student"]}>
                 <Medical />
+              </ProtectedRoute>
+            } />
+            <Route path="/assistant" element={
+              <ProtectedRoute allowedRoles={["superadmin", "student"]}>
+                <AIAssistant />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />

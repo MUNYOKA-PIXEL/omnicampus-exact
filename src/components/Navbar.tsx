@@ -43,6 +43,14 @@ const Navbar = () => {
             Clubs
           </Link>
           <Link
+            to="/assistant"
+            className={`font-medium transition-colors duration-300 ${
+              location.pathname === "/assistant" ? "text-primary" : "text-muted-foreground hover:text-primary"
+            }`}
+          >
+            AI Assistant
+          </Link>
+          <Link
             to="/login"
             className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-usiu-dark-blue transition-colors duration-300"
           >

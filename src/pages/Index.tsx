@@ -29,7 +29,7 @@ const features = [
     icon: Bot,
     title: "AI Assistant",
     description: "Get recommendations and answers to your questions",
-    link: "/dashboard",
+    link: "/assistant",
     linkText: "Try AI →",
   },
 ];
