@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getCampusContext } from "./campusContext";
 
 // Standard model name
-const API_KEY = "AIzaSyDJC2VdfoYAwOATkM0BnU-iS_ZpXRj4oXk";
+const API_KEY = "AIzaSyCJs-l4ul-am84TTW4MT9WlP47ttG95c3s";
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 export const generateCampusResponse = async (userPrompt: string) => {
