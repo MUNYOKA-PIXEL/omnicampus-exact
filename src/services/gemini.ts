@@ -1,18 +1,16 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getCampusContext } from "./campusContext";
 
-// Standard model name
+// Final refined service for stability
 const API_KEY = "AIzaSyB-VTiRjAw1CRo8-8swn5J50gS5kthaBfE";
-
-// Initialize with explicit v1beta version
 const genAI = new GoogleGenerativeAI(API_KEY);
-
-// List of models to try in order of preference
-const MODELS_TO_TRY = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"];
 
 export const generateCampusResponse = async (userPrompt: string) => {
   try {
     const context = await getCampusContext();
+    
+    // Using the most widely available model with default settings
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const systemPrompt = `
       You are Omni-Intelligence, the official AI assistant for OmniCampus at USIU-Africa. 
@@ -33,29 +31,18 @@ export const generateCampusResponse = async (userPrompt: string) => {
       6. Use USIU-Africa terminology.
     `;
 
-    // Attempt models sequentially
-    for (const modelName of MODELS_TO_TRY) {
-      try {
-        console.log(`[Omni-Intelligence] Requesting ${modelName}...`);
-        // Force v1beta specifically for these models
-        const model = genAI.getGenerativeModel({ model: modelName }, { apiVersion: "v1beta" });
-        
-        const result = await model.generateContent({
-          contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\nUser Query: " + userPrompt }] }]
-        });
-        
-        const response = await result.response;
-        const text = response.text();
-        if (text) return text;
-      } catch (err: any) {
-        console.warn(`[Omni-Intelligence] ${modelName} failed:`, err.message);
-        if (modelName === MODELS_TO_TRY[MODELS_TO_TRY.length - 1]) throw err;
-      }
-    }
+    const result = await model.generateContent(systemPrompt + "\n\nUser Query: " + userPrompt);
+    const response = await result.response;
+    return response.text();
+    
   } catch (error: any) {
-    console.error("[Omni-Intelligence] Final Error:", error);
-    return `Connection Error: ${error?.message || "Unknown"}. Please ensure your API key has the 'Generative Language API' enabled in Google AI Studio.`;
+    console.error("[Omni-Intelligence] Connection Error:", error);
+    
+    // Provide actionable advice for 404 errors
+    if (error?.message?.includes("404")) {
+      return "Model not found (404). This almost always means the 'Generative Language API' is NOT enabled for your API key. Please enable it in Google AI Studio or Google Cloud Console.";
+    }
+    
+    return `Connection Error: ${error?.message || "Something went wrong"}. Please try again later.`;
   }
-  
-  return "I'm unable to connect to the campus intelligence right now.";
 };
