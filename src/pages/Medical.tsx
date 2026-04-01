@@ -1,24 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CalendarCheck, History, FileText, Clock, CalendarPlus, Stethoscope, Pill, CreditCard, AlertTriangle, Ambulance } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
+
+interface Doctor {
+  id: string;
+  name: string;
+  specialty: string;
+  available: boolean;
+  languages: string | null;
+}
+
+interface Medication {
+  id: string;
+  name: string;
+  type: string;
+  price: string;
+  available: boolean;
+}
+
+interface Appointment {
+  id: string;
+  date: string;
+  time: string;
+  reason: string | null;
+  status: string;
+  doctor_id: string;
+  doctors?: { name: string; specialty: string };
+}
 
 const Medical = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("appointments");
   const [showBookModal, setShowBookModal] = useState(false);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const doctors = [
-    { name: "Dr. Sarah Kimani", specialty: "General Practitioner", available: true, languages: "English, Swahili" },
-    { name: "Dr. James Ochieng", specialty: "Dentist", available: true, languages: "English, Swahili" },
-    { name: "Dr. Amina Hassan", specialty: "Psychologist", available: false, languages: "English, Swahili, Arabic" },
-    { name: "Dr. Peter Mwangi", specialty: "Physiotherapist", available: true, languages: "English, Swahili" },
-  ];
-
-  const medications = [
-    { name: "Paracetamol", type: "Pain Relief", price: "KES 50", icon: Pill },
-    { name: "Amoxicillin", type: "Antibiotic", price: "KES 200", icon: Pill },
-    { name: "Ibuprofen", type: "Anti-inflammatory", price: "KES 80", icon: Pill },
-    { name: "Loratadine", type: "Antihistamine", price: "KES 120", icon: Pill },
-  ];
+  // Appointment form
+  const [selectedDoctor, setSelectedDoctor] = useState("");
+  const [apptDate, setApptDate] = useState("");
+  const [apptTime, setApptTime] = useState("");
+  const [apptReason, setApptReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const resources = [
     { title: "Mental Health Guide", description: "Tips for managing stress and anxiety during exams", icon: "🧠" },
@@ -26,6 +53,60 @@ const Medical = () => {
     { title: "Exercise Programs", description: "Stay fit with campus workout routines", icon: "💪" },
     { title: "First Aid Basics", description: "Essential first aid knowledge for emergencies", icon: "🩹" },
   ];
+
+  const fetchData = async () => {
+    setLoading(true);
+    const [docsRes, medsRes, apptsRes] = await Promise.all([
+      supabase.from("doctors").select("*").order("name"),
+      supabase.from("medications").select("*").order("name"),
+      user ? supabase.from("appointments").select("*, doctors(name, specialty)").eq("user_id", user.id).order("date", { ascending: false }) : Promise.resolve({ data: [] }),
+    ]);
+    if (docsRes.data) setDoctors(docsRes.data);
+    if (medsRes.data) setMedications(medsRes.data);
+    if (apptsRes.data) setAppointments(apptsRes.data as Appointment[]);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchData(); }, [user]);
+
+  const upcomingAppts = appointments.filter(a => a.status === "scheduled" && new Date(a.date) >= new Date());
+  const pastAppts = appointments.filter(a => a.status !== "scheduled" || new Date(a.date) < new Date());
+
+  const handleBookAppointment = async () => {
+    if (!user || !selectedDoctor || !apptDate || !apptTime) {
+      toast({ title: "Error", description: "Please fill all required fields", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.from("appointments").insert({
+      user_id: user.id,
+      doctor_id: selectedDoctor,
+      date: apptDate,
+      time: apptTime,
+      reason: apptReason.trim() || null,
+    });
+    setSubmitting(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: "Appointment booked successfully!" });
+      setSelectedDoctor(""); setApptDate(""); setApptTime(""); setApptReason("");
+      setShowBookModal(false);
+      fetchData();
+    }
+  };
+
+  const handleCancelAppointment = async (id: string) => {
+    if (!confirm("Cancel this appointment?")) return;
+    const { error } = await supabase.from("appointments").update({ status: "cancelled" }).eq("id", id);
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else { toast({ title: "Appointment cancelled" }); fetchData(); }
+  };
+
+  const openBookWithDoctor = (doctorId: string) => {
+    setSelectedDoctor(doctorId);
+    setShowBookModal(true);
+  };
 
   return (
     <DashboardLayout>
@@ -44,17 +125,17 @@ const Medical = () => {
             <h3 className="font-semibold text-lg">Medical Emergency?</h3>
             <p>Call campus security: <strong>+254 700 123 911</strong> or dial <strong>911</strong> from any campus phone</p>
           </div>
-          <button className="ml-auto bg-card text-destructive px-6 py-3 rounded-md font-bold hover:scale-105 hover:shadow-lg hover:bg-accent hover:text-destructive transition-all duration-300 flex items-center gap-2">
+          <a href="tel:+254700123911" className="ml-auto bg-card text-destructive px-6 py-3 rounded-md font-bold hover:scale-105 hover:shadow-lg hover:bg-accent hover:text-destructive transition-all duration-300 flex items-center gap-2">
             <Ambulance className="w-5 h-5" /> EMERGENCY
-          </button>
+          </a>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
         {[
-          { icon: CalendarCheck, value: "0", label: "Upcoming Appointments" },
-          { icon: History, value: "0", label: "Past Visits" },
+          { icon: CalendarCheck, value: String(upcomingAppts.length), label: "Upcoming Appointments" },
+          { icon: History, value: String(pastAppts.length), label: "Past Visits" },
           { icon: FileText, value: "0", label: "Active Prescriptions" },
           { icon: Clock, value: "15", label: "Avg. Wait Time (min)" },
         ].map((stat) => {
@@ -77,9 +158,9 @@ const Medical = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         {[
           { icon: CalendarPlus, title: "Book Appointment", desc: "Schedule a visit with our doctors", action: () => setShowBookModal(true) },
-          { icon: FileText, title: "Medical Records", desc: "View your health records", action: () => {} },
-          { icon: Pill, title: "Prescriptions", desc: "View and renew prescriptions", action: () => {} },
-          { icon: CreditCard, title: "Insurance Info", desc: "View insurance details", action: () => {} },
+          { icon: FileText, title: "Medical Records", desc: "View your health records", action: () => setActiveTab("appointments") },
+          { icon: Pill, title: "Prescriptions", desc: "View and renew prescriptions", action: () => setActiveTab("pharmacy") },
+          { icon: CreditCard, title: "Insurance Info", desc: "View insurance details", action: () => toast({ title: "Insurance", description: "Contact admin for insurance details." }) },
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -118,16 +199,42 @@ const Medical = () => {
         ))}
       </div>
 
+      {loading && <div className="text-center text-muted-foreground py-12">Loading...</div>}
+
       {/* Appointments */}
-      {activeTab === "appointments" && (
-        <div className="text-center text-muted-foreground py-12">No appointments scheduled</div>
+      {!loading && activeTab === "appointments" && (
+        appointments.length === 0 ? (
+          <div className="text-center text-muted-foreground py-12">No appointments scheduled</div>
+        ) : (
+          <div className="space-y-4">
+            {appointments.map((appt) => (
+              <div key={appt.id} className="bg-card border border-border rounded-xl p-6 shadow-usiu flex items-center gap-6">
+                <div className="bg-primary text-primary-foreground px-4 py-3 rounded-md text-center min-w-[80px]">
+                  <span className="text-sm font-bold block">{new Date(appt.date).toLocaleDateString()}</span>
+                  <span className="text-xs">{appt.time}</span>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-primary">{(appt as any).doctors?.name || "Doctor"}</h4>
+                  <p className="text-muted-foreground text-sm">{(appt as any).doctors?.specialty || ""}</p>
+                  {appt.reason && <p className="text-muted-foreground text-sm mt-1">Reason: {appt.reason}</p>}
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  appt.status === "scheduled" ? "bg-primary/10 text-primary" : appt.status === "cancelled" ? "bg-destructive/10 text-destructive" : "bg-[#008000]/10 text-[#008000]"
+                }`}>{appt.status.charAt(0).toUpperCase() + appt.status.slice(1)}</span>
+                {appt.status === "scheduled" && (
+                  <button onClick={() => handleCancelAppointment(appt.id)} className="text-destructive text-sm font-medium hover:underline">Cancel</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )
       )}
 
       {/* Doctors */}
-      {activeTab === "doctors" && (
+      {!loading && activeTab === "doctors" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {doctors.map((doc) => (
-            <div key={doc.name} className="bg-card border border-border rounded-xl p-5 text-center shadow-usiu hover:-translate-y-1 hover:border-accent hover:shadow-usiu-card transition-all duration-300">
+            <div key={doc.id} className="bg-card border border-border rounded-xl p-5 text-center shadow-usiu hover:-translate-y-1 hover:border-accent hover:shadow-usiu-card transition-all duration-300">
               <div className="w-[100px] h-[100px] bg-gradient-to-br from-primary to-usiu-dark-blue rounded-full mx-auto mb-4 flex items-center justify-center border-[3px] border-accent">
                 <Stethoscope className="w-12 h-12 text-accent" />
               </div>
@@ -136,44 +243,57 @@ const Medical = () => {
               <span className={`text-sm px-3 py-1 rounded-full inline-block mb-3 ${doc.available ? "bg-[#008000]/10 text-[#008000]" : "bg-destructive/10 text-destructive"}`}>
                 {doc.available ? "Available" : "Unavailable"}
               </span>
-              <p className="text-muted-foreground text-xs">🌐 {doc.languages}</p>
-              <button className="mt-4 w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-usiu-dark-blue transition-colors">
+              <p className="text-muted-foreground text-xs">🌐 {doc.languages || "English"}</p>
+              <button
+                onClick={() => doc.available && openBookWithDoctor(doc.id)}
+                disabled={!doc.available}
+                className="mt-4 w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-usiu-dark-blue transition-colors disabled:opacity-50"
+              >
                 Book Appointment
               </button>
             </div>
           ))}
+          {doctors.length === 0 && <div className="col-span-4 text-center text-muted-foreground py-12">No doctors available</div>}
         </div>
       )}
 
       {/* Pharmacy */}
-      {activeTab === "pharmacy" && (
+      {!loading && activeTab === "pharmacy" && (
         <div>
           <h3 className="font-semibold text-primary mb-5">Available Medications</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
             {medications.map((med) => (
-              <div key={med.name} className="bg-card border border-border rounded-xl p-5 text-center shadow-usiu hover:-translate-y-1 hover:border-accent transition-all duration-300">
+              <div key={med.id} className="bg-card border border-border rounded-xl p-5 text-center shadow-usiu hover:-translate-y-1 hover:border-accent transition-all duration-300">
                 <Pill className="w-10 h-10 text-primary mx-auto mb-3" />
                 <h4 className="font-semibold text-primary mb-1">{med.name}</h4>
                 <p className="text-muted-foreground text-sm mb-1">{med.type}</p>
                 <p className="font-bold text-[#008000] text-[1.1rem] my-3">{med.price}</p>
-                <button className="w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-usiu-dark-blue transition-colors">
-                  Request
+                <button
+                  onClick={() => toast({ title: "Request Sent", description: `${med.name} request submitted. Visit pharmacy to collect.` })}
+                  disabled={!med.available}
+                  className="w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-usiu-dark-blue transition-colors disabled:opacity-50"
+                >
+                  {med.available ? "Request" : "Out of Stock"}
                 </button>
               </div>
             ))}
+            {medications.length === 0 && <div className="col-span-4 text-center text-muted-foreground py-12">No medications listed</div>}
           </div>
         </div>
       )}
 
       {/* Resources */}
-      {activeTab === "resources" && (
+      {!loading && activeTab === "resources" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
           {resources.map((res) => (
             <div key={res.title} className="bg-card border border-border rounded-xl p-5 text-center shadow-usiu hover:-translate-y-1 hover:border-accent transition-all duration-300">
               <span className="text-4xl block mb-4">{res.icon}</span>
               <h4 className="font-semibold text-primary mb-3">{res.title}</h4>
               <p className="text-muted-foreground text-sm mb-4">{res.description}</p>
-              <button className="w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-usiu-dark-blue transition-colors">
+              <button
+                onClick={() => toast({ title: res.title, description: res.description })}
+                className="w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-usiu-dark-blue transition-colors"
+              >
                 Learn More
               </button>
             </div>
@@ -191,15 +311,21 @@ const Medical = () => {
             </div>
             <div className="p-8 space-y-6">
               <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Doctor</label>
-                <select className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent">
-                  <option>Select a doctor</option>
-                  {doctors.filter(d => d.available).map(d => <option key={d.name}>{d.name} - {d.specialty}</option>)}
+                <select value={selectedDoctor} onChange={e => setSelectedDoctor(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent">
+                  <option value="">Select a doctor</option>
+                  {doctors.filter(d => d.available).map(d => <option key={d.id} value={d.id}>{d.name} - {d.specialty}</option>)}
                 </select>
               </div>
-              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Date</label><input type="date" className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" /></div>
-              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Time</label><input type="time" className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" /></div>
-              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Reason</label><textarea className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent min-h-[100px] resize-y" placeholder="Describe your symptoms or reason" /></div>
-              <button className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300">Book Appointment</button>
+              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Date</label><input type="date" value={apptDate} onChange={e => setApptDate(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" /></div>
+              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Time</label><input type="time" value={apptTime} onChange={e => setApptTime(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" /></div>
+              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Reason</label><textarea value={apptReason} onChange={e => setApptReason(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent min-h-[100px] resize-y" placeholder="Describe your symptoms or reason" /></div>
+              <button
+                onClick={handleBookAppointment}
+                disabled={submitting}
+                className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50"
+              >
+                {submitting ? "Booking..." : "Book Appointment"}
+              </button>
             </div>
           </div>
         </div>

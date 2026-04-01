@@ -1,27 +1,120 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Search, BookOpen } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
-const sampleBooks = [
-  { id: 1, title: "Introduction to Algorithms", author: "Thomas H. Cormen", category: "Computer Science", available: true, copies: 3 },
-  { id: 2, title: "Clean Code", author: "Robert C. Martin", category: "Programming", available: true, copies: 2 },
-  { id: 3, title: "The Lean Startup", author: "Eric Ries", category: "Business", available: false, copies: 0 },
-  { id: 4, title: "Design Patterns", author: "Gang of Four", category: "Computer Science", available: true, copies: 1 },
-  { id: 5, title: "Database Systems", author: "Ramez Elmasri", category: "Computer Science", available: true, copies: 4 },
-  { id: 6, title: "Engineering Mechanics", author: "J.L. Meriam", category: "Engineering", available: true, copies: 2 },
-];
+interface Book {
+  id: string;
+  title: string;
+  author: string;
+  category: string;
+  available: boolean;
+  copies: number;
+}
+
+interface BookLoan {
+  id: string;
+  book_id: string;
+  issue_date: string;
+  due_date: string;
+  status: string;
+  fine_amount: number | null;
+  books?: { title: string };
+}
+
+interface BookRequest {
+  id: string;
+  title: string;
+  author: string | null;
+  reason: string | null;
+  status: string;
+  created_at: string;
+}
 
 const Library = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("available");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [loans, setLoans] = useState<BookLoan[]>([]);
+  const [requests, setRequests] = useState<BookRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [borrowing, setBorrowing] = useState<string | null>(null);
 
-  const filteredBooks = sampleBooks.filter((book) => {
+  // Request form state
+  const [reqTitle, setReqTitle] = useState("");
+  const [reqAuthor, setReqAuthor] = useState("");
+  const [reqReason, setReqReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchData = async () => {
+    setLoading(true);
+    const [booksRes, loansRes, requestsRes] = await Promise.all([
+      supabase.from("books").select("*").order("title"),
+      user ? supabase.from("book_loans").select("*, books(title)").eq("user_id", user.id).order("issue_date", { ascending: false }) : Promise.resolve({ data: [] }),
+      user ? supabase.from("book_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
+    ]);
+    if (booksRes.data) setBooks(booksRes.data);
+    if (loansRes.data) setLoans(loansRes.data as BookLoan[]);
+    if (requestsRes.data) setRequests(requestsRes.data as BookRequest[]);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchData(); }, [user]);
+
+  const categories = [...new Set(books.map(b => b.category))];
+
+  const filteredBooks = books.filter((book) => {
     const matchesSearch = book.title.toLowerCase().includes(searchQuery.toLowerCase()) || book.author.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = !categoryFilter || book.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
+
+  const handleBorrow = async (book: Book) => {
+    if (!user || !book.available) return;
+    setBorrowing(book.id);
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 14);
+    const { error } = await supabase.from("book_loans").insert({
+      book_id: book.id,
+      user_id: user.id,
+      due_date: dueDate.toISOString().split("T")[0],
+    });
+    setBorrowing(null);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: `"${book.title}" borrowed successfully! Due in 14 days.` });
+      fetchData();
+    }
+  };
+
+  const handleRequestSubmit = async () => {
+    if (!user || !reqTitle.trim()) return;
+    setSubmitting(true);
+    const { error } = await supabase.from("book_requests").insert({
+      title: reqTitle.trim(),
+      author: reqAuthor.trim() || null,
+      reason: reqReason.trim() || null,
+      user_id: user.id,
+    });
+    setSubmitting(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: "Book request submitted!" });
+      setReqTitle(""); setReqAuthor(""); setReqReason("");
+      setShowModal(false);
+      fetchData();
+    }
+  };
+
+  const activeLoans = loans.filter(l => l.status === "active");
+  const totalFines = loans.reduce((sum, l) => sum + (l.fine_amount || 0), 0);
 
   return (
     <DashboardLayout>
@@ -53,10 +146,7 @@ const Library = () => {
           className="px-4 py-4 bg-card border border-border rounded-md text-foreground focus:outline-none focus:border-accent"
         >
           <option value="">All Categories</option>
-          <option value="Computer Science">Computer Science</option>
-          <option value="Programming">Programming</option>
-          <option value="Business">Business</option>
-          <option value="Engineering">Engineering</option>
+          {categories.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
 
@@ -77,8 +167,10 @@ const Library = () => {
         ))}
       </div>
 
+      {loading && <div className="text-center text-muted-foreground py-12">Loading...</div>}
+
       {/* Available Books */}
-      {activeTab === "available" && (
+      {!loading && activeTab === "available" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredBooks.map((book) => (
             <div key={book.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu hover:-translate-y-1 hover:shadow-usiu-card hover:border-accent transition-all duration-300">
@@ -92,26 +184,31 @@ const Library = () => {
                 <span className={`block text-sm mb-4 ${book.available ? "text-[#008000]" : "text-destructive"}`}>
                   {book.available ? `Available (${book.copies} copies)` : "Not Available"}
                 </span>
-                <button className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300">
-                  {book.available ? "Borrow Book" : "Join Waitlist"}
+                <button
+                  onClick={() => handleBorrow(book)}
+                  disabled={borrowing === book.id}
+                  className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50"
+                >
+                  {borrowing === book.id ? "Processing..." : book.available ? "Borrow Book" : "Join Waitlist"}
                 </button>
               </div>
             </div>
           ))}
+          {filteredBooks.length === 0 && <div className="col-span-3 text-center text-muted-foreground py-12">No books found</div>}
         </div>
       )}
 
       {/* My Loans */}
-      {activeTab === "myLoans" && (
+      {!loading && activeTab === "myLoans" && (
         <div>
           <div className="grid grid-cols-2 gap-8 mb-8">
             <div className="bg-card border border-border rounded-xl p-6 shadow-usiu text-center">
               <h3 className="text-muted-foreground font-medium mb-2">Currently Issued</h3>
-              <p className="text-[1.8rem] font-bold text-primary">0</p>
+              <p className="text-[1.8rem] font-bold text-primary">{activeLoans.length}</p>
             </div>
             <div className="bg-card border border-border rounded-xl p-6 shadow-usiu text-center">
               <h3 className="text-muted-foreground font-medium mb-2">Total Fines</h3>
-              <p className="text-[1.8rem] font-bold text-primary">KES 0</p>
+              <p className="text-[1.8rem] font-bold text-primary">KES {totalFines}</p>
             </div>
           </div>
           <table className="w-full border-collapse">
@@ -125,14 +222,28 @@ const Library = () => {
               </tr>
             </thead>
             <tbody>
-              <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">No active loans</td></tr>
+              {loans.length === 0 ? (
+                <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">No active loans</td></tr>
+              ) : loans.map((loan) => (
+                <tr key={loan.id} className="hover:bg-primary/5">
+                  <td className="p-4 border-b border-border">{(loan as any).books?.title || "Unknown"}</td>
+                  <td className="p-4 border-b border-border">{new Date(loan.issue_date).toLocaleDateString()}</td>
+                  <td className="p-4 border-b border-border">{new Date(loan.due_date).toLocaleDateString()}</td>
+                  <td className="p-4 border-b border-border">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${loan.status === "active" ? "bg-primary/10 text-primary" : "bg-[#008000]/10 text-[#008000]"}`}>
+                      {loan.status === "active" && new Date(loan.due_date) < new Date() ? "Overdue" : loan.status.charAt(0).toUpperCase() + loan.status.slice(1)}
+                    </span>
+                  </td>
+                  <td className="p-4 border-b border-border">KES {loan.fine_amount || 0}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
 
       {/* My Requests */}
-      {activeTab === "myRequests" && (
+      {!loading && activeTab === "myRequests" && (
         <table className="w-full border-collapse">
           <thead>
             <tr>
@@ -143,7 +254,20 @@ const Library = () => {
             </tr>
           </thead>
           <tbody>
-            <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">No requests yet</td></tr>
+            {requests.length === 0 ? (
+              <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">No requests yet</td></tr>
+            ) : requests.map((req) => (
+              <tr key={req.id} className="hover:bg-primary/5">
+                <td className="p-4 border-b border-border">{req.title}</td>
+                <td className="p-4 border-b border-border">{req.author || "N/A"}</td>
+                <td className="p-4 border-b border-border">{new Date(req.created_at).toLocaleDateString()}</td>
+                <td className="p-4 border-b border-border">
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    req.status === "approved" ? "bg-[#008000]/10 text-[#008000]" : req.status === "rejected" ? "bg-destructive/10 text-destructive" : "bg-accent/20 text-primary"
+                  }`}>{req.status.charAt(0).toUpperCase() + req.status.slice(1)}</span>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       )}
@@ -159,18 +283,22 @@ const Library = () => {
             <div className="p-8">
               <div className="mb-6">
                 <label className="block mb-2 text-muted-foreground text-sm font-medium">Book Title</label>
-                <input className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="Enter book title" />
+                <input value={reqTitle} onChange={e => setReqTitle(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="Enter book title" />
               </div>
               <div className="mb-6">
                 <label className="block mb-2 text-muted-foreground text-sm font-medium">Author</label>
-                <input className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="Enter author name" />
+                <input value={reqAuthor} onChange={e => setReqAuthor(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="Enter author name" />
               </div>
               <div className="mb-6">
                 <label className="block mb-2 text-muted-foreground text-sm font-medium">Reason</label>
-                <textarea className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent min-h-[100px] resize-y" placeholder="Why do you need this book?" />
+                <textarea value={reqReason} onChange={e => setReqReason(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent min-h-[100px] resize-y" placeholder="Why do you need this book?" />
               </div>
-              <button className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300">
-                Submit Request
+              <button
+                onClick={handleRequestSubmit}
+                disabled={submitting || !reqTitle.trim()}
+                className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50"
+              >
+                {submitting ? "Submitting..." : "Submit Request"}
               </button>
             </div>
           </div>

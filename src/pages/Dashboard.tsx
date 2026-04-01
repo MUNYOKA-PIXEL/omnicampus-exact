@@ -1,20 +1,64 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { BookOpen, Calendar, Users, AlertTriangle, Clock, CalendarCheck, Bot, Lightbulb, Book, Send } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Dashboard = () => {
+  const { user, profile } = useAuth();
   const [chatMessages, setChatMessages] = useState([
     { type: "bot", text: "Hello! I'm your campus assistant. Ask me about library, clubs, lost items, or medical services!" },
   ]);
   const [chatInput, setChatInput] = useState("");
 
+  // Live stats
+  const [booksBorrowed, setBooksBorrowed] = useState(0);
+  const [upcomingEvents, setUpcomingEvents] = useState(0);
+  const [activeClubs, setActiveClubs] = useState(0);
+  const [overdueFines, setOverdueFines] = useState(0);
+  const [loans, setLoans] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [recommendedBooks, setRecommendedBooks] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchDashboard = async () => {
+      const [loansRes, membershipsRes, eventsRes, booksRes] = await Promise.all([
+        supabase.from("book_loans").select("*, books(title)").eq("user_id", user.id).order("issue_date", { ascending: false }).limit(5),
+        supabase.from("club_memberships").select("club_id").eq("user_id", user.id),
+        supabase.from("club_events").select("*, clubs(name)").gte("date", new Date().toISOString().split("T")[0]).order("date").limit(5),
+        supabase.from("books").select("*").eq("available", true).limit(3),
+      ]);
+
+      const userLoans = loansRes.data || [];
+      setLoans(userLoans);
+      const activeLoans = userLoans.filter((l: any) => l.status === "active");
+      setBooksBorrowed(activeLoans.length);
+      setOverdueFines(userLoans.reduce((sum: number, l: any) => sum + (l.fine_amount || 0), 0));
+
+      setActiveClubs((membershipsRes.data || []).length);
+      setEvents(eventsRes.data || []);
+      setUpcomingEvents((eventsRes.data || []).length);
+      setRecommendedBooks(booksRes.data || []);
+    };
+    fetchDashboard();
+  }, [user]);
+
   const sendMessage = () => {
     if (!chatInput.trim()) return;
+    const input = chatInput.toLowerCase();
+    let response = "I can help with library, clubs, lost items, and medical services. Try asking about those!";
+    if (input.includes("library") || input.includes("book")) response = "Visit the Library page to browse books, check your loans, or request new books.";
+    else if (input.includes("club")) response = "Check out the Clubs page to join student clubs and RSVP to events!";
+    else if (input.includes("lost") || input.includes("found")) response = "Go to Lost & Found to report lost or found items on campus.";
+    else if (input.includes("medical") || input.includes("doctor") || input.includes("appointment")) response = "Visit Medical Services to book appointments and view available doctors.";
+    else if (input.includes("hello") || input.includes("hi")) response = `Hi ${profile?.full_name || "there"}! How can I help you today?`;
+
     setChatMessages((prev) => [
       ...prev,
       { type: "user", text: chatInput },
-      { type: "bot", text: "I'm a demo assistant. In the full version, I'd help you with campus queries!" },
+      { type: "bot", text: response },
     ]);
     setChatInput("");
   };
@@ -24,17 +68,17 @@ const Dashboard = () => {
       <div className="flex justify-between items-center mb-12">
         <div>
           <h1 className="text-[2.2rem] font-semibold text-primary">Student Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back!</p>
+          <p className="text-muted-foreground">Welcome back{profile?.full_name ? `, ${profile.full_name}` : ""}!</p>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
         {[
-          { icon: BookOpen, value: "3", label: "Books Borrowed" },
-          { icon: Calendar, value: "2", label: "Upcoming Events" },
-          { icon: Users, value: "2", label: "Active Clubs" },
-          { icon: AlertTriangle, value: "KES 250", label: "Overdue Fines" },
+          { icon: BookOpen, value: String(booksBorrowed), label: "Books Borrowed" },
+          { icon: Calendar, value: String(upcomingEvents), label: "Upcoming Events" },
+          { icon: Users, value: String(activeClubs), label: "Active Clubs" },
+          { icon: AlertTriangle, value: `KES ${overdueFines}`, label: "Overdue Fines" },
         ].map((stat) => {
           const Icon = stat.icon;
           return (
@@ -71,9 +115,22 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                <tr><td className="p-2 border-b border-border">Introduction to Algorithms</td><td className="p-2 border-b border-border">Mar 20, 2025</td><td className="p-2 border-b border-border"><span className="px-3 py-1 rounded-full text-xs font-semibold border" style={{ background: "rgba(0,51,102,0.1)", color: "hsl(210,100%,20%)", borderColor: "hsl(210,100%,20%)" }}>Active</span></td></tr>
-                <tr><td className="p-2 border-b border-border">Clean Code</td><td className="p-2 border-b border-border">Mar 25, 2025</td><td className="p-2 border-b border-border"><span className="px-3 py-1 rounded-full text-xs font-semibold border" style={{ background: "rgba(0,51,102,0.1)", color: "hsl(210,100%,20%)", borderColor: "hsl(210,100%,20%)" }}>Active</span></td></tr>
-                <tr><td className="p-2 border-b border-border">Database Systems</td><td className="p-2 border-b border-border">Mar 10, 2025</td><td className="p-2 border-b border-border"><span className="px-3 py-1 rounded-full text-xs font-semibold border" style={{ background: "rgba(204,0,0,0.1)", color: "hsl(0,100%,40%)", borderColor: "hsl(0,100%,40%)" }}>Overdue</span></td></tr>
+                {loans.filter(l => l.status === "active").length === 0 ? (
+                  <tr><td colSpan={3} className="p-2 text-center text-muted-foreground text-sm">No active loans</td></tr>
+                ) : loans.filter(l => l.status === "active").map((loan: any) => {
+                  const isOverdue = new Date(loan.due_date) < new Date();
+                  return (
+                    <tr key={loan.id}>
+                      <td className="p-2 border-b border-border">{loan.books?.title || "Unknown"}</td>
+                      <td className="p-2 border-b border-border">{new Date(loan.due_date).toLocaleDateString()}</td>
+                      <td className="p-2 border-b border-border">
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold border" style={isOverdue ? { background: "rgba(204,0,0,0.1)", color: "hsl(0,100%,40%)", borderColor: "hsl(0,100%,40%)" } : { background: "rgba(0,51,102,0.1)", color: "hsl(210,100%,20%)", borderColor: "hsl(210,100%,20%)" }}>
+                          {isOverdue ? "Overdue" : "Active"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -89,20 +146,22 @@ const Dashboard = () => {
           </div>
           <div className="p-8">
             <div className="space-y-6">
-              {[
-                { date: "Mar 15", title: "Hackathon 2025", detail: "DevClub · Engineering Building" },
-                { date: "Mar 20", title: "Pitch Night", detail: "Business Club · Business School" },
-              ].map((event) => (
-                <div key={event.title} className="flex items-center gap-4">
-                  <div className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-center min-w-[70px]">
-                    <span className="text-sm font-semibold">{event.date}</span>
+              {events.length === 0 ? (
+                <p className="text-center text-muted-foreground text-sm">No upcoming events</p>
+              ) : events.slice(0, 3).map((event: any) => {
+                const dateObj = new Date(event.date);
+                return (
+                  <div key={event.id} className="flex items-center gap-4">
+                    <div className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-center min-w-[70px]">
+                      <span className="text-sm font-semibold">{dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-foreground">{event.title}</h4>
+                      <p className="text-muted-foreground text-sm">{event.clubs?.name || "Club"} · {event.location || "TBD"}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-foreground">{event.title}</h4>
-                    <p className="text-muted-foreground text-sm">{event.detail}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -160,12 +219,10 @@ const Dashboard = () => {
             </h3>
           </div>
           <div className="p-8 space-y-6">
-            {[
-              { title: "The Pragmatic Programmer", author: "David Thomas" },
-              { title: "Design Patterns", author: "Erich Gamma" },
-              { title: "Python Crash Course", author: "Eric Matthes" },
-            ].map((book) => (
-              <div key={book.title} className="flex items-center gap-4">
+            {recommendedBooks.length === 0 ? (
+              <p className="text-center text-muted-foreground text-sm">No recommendations available</p>
+            ) : recommendedBooks.map((book: any) => (
+              <div key={book.id} className="flex items-center gap-4">
                 <Book className="w-8 h-8 text-primary" />
                 <div>
                   <h4 className="font-semibold text-foreground">{book.title}</h4>
