@@ -1,18 +1,36 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AlertTriangle, CheckCircle, Clock, Check, Handshake, Percent, Search } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
-const sampleItems = [
-  { id: 1, type: "Lost", item: "Student ID Card", description: "Blue USIU student ID", location: "Library 2nd Floor", date: "Mar 10, 2025", status: "Searching" },
-  { id: 2, type: "Found", item: "Water Bottle", description: "Green Hydro Flask", location: "Cafeteria", date: "Mar 11, 2025", status: "Unclaimed" },
-  { id: 3, type: "Lost", item: "Laptop Charger", description: "Dell 65W charger", location: "Engineering Lab", date: "Mar 9, 2025", status: "Matched" },
-];
+interface LostFoundItem {
+  id: string;
+  type: string;
+  item_name: string;
+  description: string | null;
+  location: string | null;
+  date_reported: string;
+  status: string;
+  user_id: string;
+}
 
 const LostFound = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showLostModal, setShowLostModal] = useState(false);
   const [showFoundModal, setShowFoundModal] = useState(false);
+  const [items, setItems] = useState<LostFoundItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Form state
+  const [itemName, setItemName] = useState("");
+  const [itemDesc, setItemDesc] = useState("");
+  const [itemLocation, setItemLocation] = useState("");
+  const [itemDate, setItemDate] = useState("");
 
   const tabs = [
     { id: "all", label: "All Items" },
@@ -21,6 +39,59 @@ const LostFound = () => {
     { id: "matches", label: "Potential Matches" },
     { id: "my", label: "My Reports" },
   ];
+
+  const fetchItems = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("lost_found_items").select("*").order("date_reported", { ascending: false });
+    if (data) setItems(data);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchItems(); }, []);
+
+  const handleSubmitReport = async (type: "Lost" | "Found") => {
+    if (!user || !itemName.trim()) {
+      toast({ title: "Error", description: "Item name is required", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.from("lost_found_items").insert({
+      type,
+      item_name: itemName.trim(),
+      description: itemDesc.trim() || null,
+      location: itemLocation.trim() || null,
+      date_reported: itemDate || new Date().toISOString().split("T")[0],
+      user_id: user.id,
+    });
+    setSubmitting(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: `${type} item report submitted!` });
+      setItemName(""); setItemDesc(""); setItemLocation(""); setItemDate("");
+      setShowLostModal(false); setShowFoundModal(false);
+      fetchItems();
+    }
+  };
+
+  const getFilteredItems = () => {
+    let filtered = items;
+    if (activeTab === "lost") filtered = items.filter(i => i.type === "Lost");
+    else if (activeTab === "found") filtered = items.filter(i => i.type === "Found");
+    else if (activeTab === "matches") filtered = items.filter(i => i.status === "matched");
+    else if (activeTab === "my") filtered = items.filter(i => i.user_id === user?.id);
+
+    if (searchQuery) {
+      filtered = filtered.filter(i => i.item_name.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    return filtered;
+  };
+
+  const filteredItems = getFilteredItems();
+  const lostCount = items.filter(i => i.type === "Lost").length;
+  const foundCount = items.filter(i => i.type === "Found").length;
+  const matchedCount = items.filter(i => i.status === "matched").length;
+  const recoveryRate = items.length > 0 ? Math.round((matchedCount / items.length) * 100) : 0;
 
   return (
     <DashboardLayout>
@@ -45,10 +116,10 @@ const LostFound = () => {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
         {[
-          { icon: Clock, value: "2", label: "Lost Items" },
-          { icon: Check, value: "1", label: "Found Items" },
-          { icon: Handshake, value: "1", label: "Potential Matches" },
-          { icon: Percent, value: "75%", label: "Recovery Rate" },
+          { icon: Clock, value: String(lostCount), label: "Lost Items" },
+          { icon: Check, value: String(foundCount), label: "Found Items" },
+          { icon: Handshake, value: String(matchedCount), label: "Potential Matches" },
+          { icon: Percent, value: `${recoveryRate}%`, label: "Recovery Rate" },
         ].map((stat) => {
           const Icon = stat.icon;
           return (
@@ -82,8 +153,10 @@ const LostFound = () => {
         ))}
       </div>
 
-      {/* All Items Table */}
-      {activeTab === "all" && (
+      {loading && <div className="text-center text-muted-foreground py-12">Loading...</div>}
+
+      {/* Items Table */}
+      {!loading && (
         <div>
           <div className="mb-8">
             <div className="relative">
@@ -97,45 +170,47 @@ const LostFound = () => {
               />
             </div>
           </div>
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                {["Type", "Item", "Description", "Location", "Date", "Status", "Actions"].map((h) => (
-                  <th key={h} className="text-left p-4 bg-primary text-primary-foreground font-medium text-sm uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sampleItems
-                .filter((item) => item.item.toLowerCase().includes(searchQuery.toLowerCase()))
-                .map((item) => (
+          {filteredItems.length === 0 ? (
+            <div className="text-center text-muted-foreground py-12">No items to display</div>
+          ) : (
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  {["Type", "Item", "Description", "Location", "Date", "Status", "Actions"].map((h) => (
+                    <th key={h} className="text-left p-4 bg-primary text-primary-foreground font-medium text-sm uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredItems.map((item) => (
                   <tr key={item.id} className="hover:bg-primary/5">
                     <td className="p-4 border-b border-border">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.type === "Lost" ? "bg-destructive/10 text-destructive" : "bg-[#008000]/10 text-[#008000]"}`}>
                         {item.type}
                       </span>
                     </td>
-                    <td className="p-4 border-b border-border">{item.item}</td>
-                    <td className="p-4 border-b border-border">{item.description}</td>
-                    <td className="p-4 border-b border-border">{item.location}</td>
-                    <td className="p-4 border-b border-border">{item.date}</td>
+                    <td className="p-4 border-b border-border">{item.item_name}</td>
+                    <td className="p-4 border-b border-border">{item.description || "N/A"}</td>
+                    <td className="p-4 border-b border-border">{item.location || "N/A"}</td>
+                    <td className="p-4 border-b border-border">{new Date(item.date_reported).toLocaleDateString()}</td>
                     <td className="p-4 border-b border-border">
                       <span className="px-3 py-1 rounded-full text-xs font-semibold" style={{ background: "rgba(255,215,0,0.2)", color: "#856404", border: "1px solid hsl(51,100%,50%)" }}>{item.status}</span>
                     </td>
                     <td className="p-4 border-b border-border">
-                      <button className="text-primary text-sm font-medium hover:text-accent">View</button>
+                      <button
+                        onClick={() => toast({ title: item.item_name, description: `${item.type} at ${item.location || "unknown location"}. Status: ${item.status}` })}
+                        className="text-primary text-sm font-medium hover:text-accent"
+                      >
+                        View
+                      </button>
                     </td>
                   </tr>
                 ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          )}
         </div>
       )}
-
-      {activeTab === "lost" && <div className="text-center text-muted-foreground py-12">No lost items to display</div>}
-      {activeTab === "found" && <div className="text-center text-muted-foreground py-12">No found items to display</div>}
-      {activeTab === "matches" && <div className="text-center text-muted-foreground py-12">No matches to display</div>}
-      {activeTab === "my" && <div className="text-center text-muted-foreground py-12">No reports to display</div>}
 
       {/* Report Lost Modal */}
       {showLostModal && (
@@ -146,11 +221,13 @@ const LostFound = () => {
               <button onClick={() => setShowLostModal(false)} className="text-primary-foreground hover:text-accent text-xl">✕</button>
             </div>
             <div className="p-8 space-y-6">
-              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Item Name</label><input className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="What did you lose?" /></div>
-              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Description</label><textarea className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent min-h-[100px] resize-y" placeholder="Describe the item" /></div>
-              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Last Seen Location</label><input className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="Where did you last see it?" /></div>
-              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Date Lost</label><input type="date" className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" /></div>
-              <button className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300">Submit Report</button>
+              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Item Name</label><input value={itemName} onChange={e => setItemName(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="What did you lose?" /></div>
+              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Description</label><textarea value={itemDesc} onChange={e => setItemDesc(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent min-h-[100px] resize-y" placeholder="Describe the item" /></div>
+              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Last Seen Location</label><input value={itemLocation} onChange={e => setItemLocation(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="Where did you last see it?" /></div>
+              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Date Lost</label><input type="date" value={itemDate} onChange={e => setItemDate(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" /></div>
+              <button onClick={() => handleSubmitReport("Lost")} disabled={submitting} className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50">
+                {submitting ? "Submitting..." : "Submit Report"}
+              </button>
             </div>
           </div>
         </div>
@@ -165,11 +242,13 @@ const LostFound = () => {
               <button onClick={() => setShowFoundModal(false)} className="text-primary-foreground hover:text-accent text-xl">✕</button>
             </div>
             <div className="p-8 space-y-6">
-              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Item Name</label><input className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="What did you find?" /></div>
-              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Description</label><textarea className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent min-h-[100px] resize-y" placeholder="Describe the item" /></div>
-              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Found Location</label><input className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="Where did you find it?" /></div>
-              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Date Found</label><input type="date" className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" /></div>
-              <button className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300">Submit Report</button>
+              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Item Name</label><input value={itemName} onChange={e => setItemName(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="What did you find?" /></div>
+              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Description</label><textarea value={itemDesc} onChange={e => setItemDesc(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent min-h-[100px] resize-y" placeholder="Describe the item" /></div>
+              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Found Location</label><input value={itemLocation} onChange={e => setItemLocation(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" placeholder="Where did you find it?" /></div>
+              <div><label className="block mb-2 text-muted-foreground text-sm font-medium">Date Found</label><input type="date" value={itemDate} onChange={e => setItemDate(e.target.value)} className="w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:border-accent" /></div>
+              <button onClick={() => handleSubmitReport("Found")} disabled={submitting} className="w-full py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50">
+                {submitting ? "Submitting..." : "Submit Report"}
+              </button>
             </div>
           </div>
         </div>
