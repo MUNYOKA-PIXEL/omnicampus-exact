@@ -1,10 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getCampusContext } from "./campusContext";
 
-// Use gemini-pro for maximum compatibility
+// Try gemini-1.5-flash-latest with models/ prefix for v1beta compatibility
 const API_KEY = "AIzaSyDJC2VdfoYAwOATkM0BnU-iS_ZpXRj4oXk";
 const genAI = new GoogleGenerativeAI(API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
 export const generateCampusResponse = async (userPrompt: string) => {
   try {
