@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 const Register = () => {
   const [firstName, setFirstName] = useState("");
@@ -9,15 +11,35 @@ const Register = () => {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { signUp } = useAuth();
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      alert("Passwords do not match");
+      toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
       return;
     }
-    navigate("/login");
+    if (password.length < 6) {
+      toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await signUp(email, password, {
+      full_name: `${firstName} ${lastName}`,
+      student_id: studentIdVal,
+      phone,
+    });
+    setIsLoading(false);
+
+    if (error) {
+      toast({ title: "Registration Failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: "Account created! Please check your email to verify." });
+      navigate("/login");
+    }
   };
 
   return (
@@ -120,9 +142,10 @@ const Register = () => {
 
             <button
               type="submit"
-              className="w-full bg-primary text-primary-foreground py-4 rounded-md font-medium text-base hover:bg-usiu-dark-blue transition-colors duration-300"
+              disabled={isLoading}
+              className="w-full bg-primary text-primary-foreground py-4 rounded-md font-medium text-base hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50"
             >
-              Register
+              {isLoading ? "Creating Account..." : "Register"}
             </button>
           </form>
 

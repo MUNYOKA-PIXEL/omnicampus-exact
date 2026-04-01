@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 const Login = () => {
   const [activeTab, setActiveTab] = useState<"student" | "admin">("student");
@@ -7,16 +9,32 @@ const Login = () => {
   const [studentPassword, setStudentPassword] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { signIn } = useAuth();
 
-  const handleStudentLogin = (e: React.FormEvent) => {
+  const handleStudentLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate("/dashboard");
+    setIsLoading(true);
+    const { error } = await signIn(studentId, studentPassword);
+    setIsLoading(false);
+    if (error) {
+      toast({ title: "Login Failed", description: error.message, variant: "destructive" });
+    } else {
+      navigate("/dashboard");
+    }
   };
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate("/dashboard");
+    setIsLoading(true);
+    const { error } = await signIn(adminUsername, adminPassword);
+    setIsLoading(false);
+    if (error) {
+      toast({ title: "Login Failed", description: error.message, variant: "destructive" });
+    } else {
+      navigate("/dashboard");
+    }
   };
 
   return (
@@ -81,9 +99,10 @@ const Login = () => {
                 </div>
                 <button
                   type="submit"
-                  className="w-full bg-primary text-primary-foreground py-4 rounded-md font-medium text-base hover:bg-usiu-dark-blue transition-colors duration-300"
+                  disabled={isLoading}
+                  className="w-full bg-primary text-primary-foreground py-4 rounded-md font-medium text-base hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50"
                 >
-                  Login
+                  {isLoading ? "Logging in..." : "Login"}
                 </button>
               </form>
               <div className="text-center mt-6 pt-6 border-t border-border text-muted-foreground">
@@ -125,9 +144,10 @@ const Login = () => {
                 </div>
                 <button
                   type="submit"
-                  className="w-full bg-primary text-primary-foreground py-4 rounded-md font-medium text-base hover:bg-usiu-dark-blue transition-colors duration-300"
+                  disabled={isLoading}
+                  className="w-full bg-primary text-primary-foreground py-4 rounded-md font-medium text-base hover:bg-usiu-dark-blue transition-colors duration-300 disabled:opacity-50"
                 >
-                  Admin Login
+                  {isLoading ? "Logging in..." : "Admin Login"}
                 </button>
               </form>
             </div>
