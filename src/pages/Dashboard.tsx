@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Calendar, Users, AlertTriangle, Clock, CalendarCheck, Bot, Lightbulb, Book, Send } from "lucide-react";
+import { BookOpen, Calendar, Users, AlertTriangle, Clock, CalendarCheck, Bot, Lightbulb, Book, Send, ShieldCheck, UserCog, TrendingUp, Activity, Search, Trash2 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, role } = useAuth();
+  const isSuperAdmin = role === "superadmin";
+  
   const [chatMessages, setChatMessages] = useState([
     { type: "bot", text: "Hello! I'm your campus assistant. Ask me about library, clubs, lost items, or medical services!" },
   ]);
@@ -17,33 +20,63 @@ const Dashboard = () => {
   const [upcomingEvents, setUpcomingEvents] = useState(0);
   const [activeClubs, setActiveClubs] = useState(0);
   const [overdueFines, setOverdueFines] = useState(0);
+  
+  // Admin Global Stats
+  const [globalStats, setGlobalStats] = useState({ users: 0, appointments: 0, inventory: 0, items: 0 });
+  
   const [loans, setLoans] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [recommendedBooks, setRecommendedBooks] = useState<any[]>([]);
+  const [userList, setUserList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     const fetchDashboard = async () => {
-      const [loansRes, membershipsRes, eventsRes, booksRes] = await Promise.all([
+      setLoading(true);
+      const promises = [
         supabase.from("book_loans").select("*, books(title)").eq("user_id", user.id).order("issue_date", { ascending: false }).limit(5),
         supabase.from("club_memberships").select("club_id").eq("user_id", user.id),
         supabase.from("club_events").select("*, clubs(name)").gte("date", new Date().toISOString().split("T")[0]).order("date").limit(5),
         supabase.from("books").select("*").eq("available", true).limit(3),
-      ]);
+      ];
 
-      const userLoans = loansRes.data || [];
+      if (isSuperAdmin) {
+        promises.push(
+          supabase.from("profiles").select("*, user_roles(role)"),
+          supabase.from("profiles").select("id", { count: "exact" }),
+          supabase.from("appointments").select("id", { count: "exact" }),
+          supabase.from("books").select("id", { count: "exact" }),
+          supabase.from("lost_found_items").select("id", { count: "exact" })
+        );
+      }
+
+      const results = await Promise.all(promises);
+      
+      const userLoans = results[0].data || [];
       setLoans(userLoans);
       const activeLoans = userLoans.filter((l: any) => l.status === "active");
       setBooksBorrowed(activeLoans.length);
       setOverdueFines(userLoans.reduce((sum: number, l: any) => sum + (l.fine_amount || 0), 0));
 
-      setActiveClubs((membershipsRes.data || []).length);
-      setEvents(eventsRes.data || []);
-      setUpcomingEvents((eventsRes.data || []).length);
-      setRecommendedBooks(booksRes.data || []);
+      setActiveClubs((results[1].data || []).length);
+      setEvents(results[2].data || []);
+      setUpcomingEvents((results[2].data || []).length);
+      setRecommendedBooks(results[3].data || []);
+
+      if (isSuperAdmin) {
+        setUserList(results[4].data || []);
+        setGlobalStats({
+          users: results[5].count || 0,
+          appointments: results[6].count || 0,
+          inventory: results[7].count || 0,
+          items: results[8].count || 0
+        });
+      }
+      setLoading(false);
     };
     fetchDashboard();
-  }, [user]);
+  }, [user, role]);
 
   const sendMessage = () => {
     if (!chatInput.trim()) return;
@@ -65,180 +98,280 @@ const Dashboard = () => {
     setChatInput("");
   };
 
+  const handleRoleUpdate = async (userId: string, newRole: string) => {
+    const { error } = await supabase.from("user_roles").update({ role: newRole }).eq("user_id", userId);
+    if (error) toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+    else {
+      toast({ title: "Role Updated", description: `User role is now ${newRole}.` });
+      // Refresh user list
+      const { data } = await supabase.from("profiles").select("*, user_roles(role)");
+      if (data) setUserList(data);
+    }
+  };
 
   return (
     <DashboardLayout>
       <div className="flex justify-between items-center mb-12">
         <div>
-          <h1 className="text-[2.2rem] font-semibold text-primary">Student Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back{profile?.full_name ? `, ${profile.full_name}` : ""}!</p>
+          <h1 className="text-[2.2rem] font-semibold text-primary">{isSuperAdmin ? "System Oversight" : "Student Dashboard"}</h1>
+          <p className="text-muted-foreground">Welcome back{profile?.full_name ? `, ${profile.full_name}` : ""}! Role: <span className="font-bold text-accent uppercase">{role}</span></p>
         </div>
+        {isSuperAdmin && (
+          <div className="flex gap-3">
+            <div className="px-4 py-2 bg-[#008000]/10 border border-[#008000]/20 rounded-md flex items-center gap-2 text-[#008000]">
+              <ShieldCheck className="w-4 h-4" />
+              <span className="text-xs font-bold uppercase tracking-widest">System Online</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-        {[
-          { icon: BookOpen, value: String(booksBorrowed), label: "Books Borrowed" },
-          { icon: Calendar, value: String(upcomingEvents), label: "Upcoming Events" },
-          { icon: Users, value: String(activeClubs), label: "Active Clubs" },
-          { icon: AlertTriangle, value: `KES ${overdueFines}`, label: "Overdue Fines" },
-        ].map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div key={stat.label} className="bg-card border border-border rounded-xl p-8 flex items-center gap-6 shadow-usiu">
-              <div className="p-4 rounded-md" style={{ background: "rgba(0,51,102,0.1)" }}>
-                <Icon className="w-10 h-10 text-primary" />
-              </div>
-              <div>
-                <h3 className="text-[1.8rem] font-bold text-primary">{stat.value}</h3>
-                <p className="text-muted-foreground text-sm">{stat.label}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Dashboard Grid */}
-      <div className="grid grid-cols-2 gap-8 mt-8">
-        {/* Current Loans */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu">
-          <div className="px-8 py-6 border-b border-border flex justify-between items-center" style={{ background: "rgba(0,51,102,0.05)" }}>
-            <h3 className="text-[1.1rem] flex items-center gap-2 text-primary">
-              <Clock className="w-5 h-5 text-accent" /> Current Loans
-            </h3>
-            <Link to="/library" className="text-primary text-sm">View All</Link>
-          </div>
-          <div className="p-8">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="text-left p-2 text-muted-foreground font-medium text-xs">Book</th>
-                  <th className="text-left p-2 text-muted-foreground font-medium text-xs">Due Date</th>
-                  <th className="text-left p-2 text-muted-foreground font-medium text-xs">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loans.filter(l => l.status === "active").length === 0 ? (
-                  <tr><td colSpan={3} className="p-2 text-center text-muted-foreground text-sm">No active loans</td></tr>
-                ) : loans.filter(l => l.status === "active").map((loan: any) => {
-                  const isOverdue = new Date(loan.due_date) < new Date();
-                  return (
-                    <tr key={loan.id}>
-                      <td className="p-2 border-b border-border">{loan.books?.title || "Unknown"}</td>
-                      <td className="p-2 border-b border-border">{new Date(loan.due_date).toLocaleDateString()}</td>
-                      <td className="p-2 border-b border-border">
-                        <span className="px-3 py-1 rounded-full text-xs font-semibold border" style={isOverdue ? { background: "rgba(204,0,0,0.1)", color: "hsl(0,100%,40%)", borderColor: "hsl(0,100%,40%)" } : { background: "rgba(0,51,102,0.1)", color: "hsl(210,100%,20%)", borderColor: "hsl(210,100%,20%)" }}>
-                          {isOverdue ? "Overdue" : "Active"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Upcoming Events */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu">
-          <div className="px-8 py-6 border-b border-border flex justify-between items-center" style={{ background: "rgba(0,51,102,0.05)" }}>
-            <h3 className="text-[1.1rem] flex items-center gap-2 text-primary">
-              <CalendarCheck className="w-5 h-5 text-accent" /> Upcoming Events
-            </h3>
-            <Link to="/clubs" className="text-primary text-sm">View All</Link>
-          </div>
-          <div className="p-8">
-            <div className="space-y-6">
-              {events.length === 0 ? (
-                <p className="text-center text-muted-foreground text-sm">No upcoming events</p>
-              ) : events.slice(0, 3).map((event: any) => {
-                const dateObj = new Date(event.date);
-                return (
-                  <div key={event.id} className="flex items-center gap-4">
-                    <div className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-center min-w-[70px]">
-                      <span className="text-sm font-semibold">{dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-foreground">{event.title}</h4>
-                      <p className="text-muted-foreground text-sm">{event.clubs?.name || "Club"} · {event.location || "TBD"}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* AI Assistant */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu">
-          <div className="px-8 py-6 border-b border-border" style={{ background: "rgba(0,51,102,0.05)" }}>
-            <h3 className="text-[1.1rem] flex items-center gap-2 text-primary">
-              <Bot className="w-5 h-5 text-accent" /> AI Assistant
-            </h3>
-          </div>
-          <div className="p-8">
-            <div className="h-[400px] flex flex-col">
-              <div className="flex-1 overflow-y-auto p-6 bg-background rounded-md mb-6 space-y-6">
-                {chatMessages.map((msg, i) => (
-                  <div key={i} className={`flex items-start gap-3 ${msg.type === "user" ? "justify-end" : ""}`}>
-                    {msg.type === "bot" && <Bot className="w-5 h-5 text-primary mt-1" />}
-                    <span
-                      className={`px-4 py-3 rounded-xl max-w-[80%] leading-relaxed border ${
-                        msg.type === "user"
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-card border-border"
-                      }`}
-                    >
-                      {msg.text}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                  placeholder="Ask me anything..."
-                  className="flex-1 px-4 py-3 bg-card border border-border rounded-md text-foreground focus:outline-none focus:border-accent"
-                />
-                <button
-                  onClick={sendMessage}
-                  className="w-[50px] bg-primary text-primary-foreground rounded-md hover:bg-usiu-dark-blue transition-colors duration-300 flex items-center justify-center"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Recommended Books */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu">
-          <div className="px-8 py-6 border-b border-border" style={{ background: "rgba(0,51,102,0.05)" }}>
-            <h3 className="text-[1.1rem] flex items-center gap-2 text-primary">
-              <Lightbulb className="w-5 h-5 text-accent" /> Recommended Books
-            </h3>
-          </div>
-          <div className="p-8 space-y-6">
-            {recommendedBooks.length === 0 ? (
-              <p className="text-center text-muted-foreground text-sm">No recommendations available</p>
-            ) : recommendedBooks.map((book: any) => (
-              <div key={book.id} className="flex items-center gap-4">
-                <Book className="w-8 h-8 text-primary" />
+      {/* --- SUPER ADMIN GLOBAL STATS --- */}
+      {isSuperAdmin && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12 animate-in fade-in duration-500">
+          {[
+            { icon: UserCog, value: String(globalStats.users), label: "Registered Users", color: "rgba(0,51,102,0.1)" },
+            { icon: Activity, value: String(globalStats.appointments), label: "Health Cases", color: "rgba(204,0,0,0.05)" },
+            { icon: Book, value: String(globalStats.inventory), label: "Library Assets", color: "rgba(0,128,0,0.05)" },
+            { icon: TrendingUp, value: String(globalStats.items), label: "Items Reported", color: "rgba(255,215,0,0.1)" },
+          ].map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <div key={stat.label} className="bg-card border border-border rounded-xl p-8 flex items-center gap-6 shadow-usiu hover:border-accent transition-all">
+                <div className="p-4 rounded-xl" style={{ background: stat.color }}>
+                  <Icon className="w-10 h-10 text-primary" />
+                </div>
                 <div>
-                  <h4 className="font-semibold text-foreground">{book.title}</h4>
-                  <p className="text-muted-foreground text-sm">{book.author}</p>
-                  <span className="text-[#008000] text-sm">Available</span>
+                  <h3 className="text-[1.8rem] font-black text-primary leading-none mb-1">{stat.value}</h3>
+                  <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest">{stat.label}</p>
                 </div>
               </div>
-            ))}
+            );
+          })}
+        </div>
+      )}
+
+      {/* --- STUDENT STATS --- */}
+      {!isSuperAdmin && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+          {[
+            { icon: BookOpen, value: String(booksBorrowed), label: "Books Borrowed" },
+            { icon: Calendar, value: String(upcomingEvents), label: "Upcoming Events" },
+            { icon: Users, value: String(activeClubs), label: "Active Clubs" },
+            { icon: AlertTriangle, value: `KES ${overdueFines}`, label: "Overdue Fines" },
+          ].map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <div key={stat.label} className="bg-card border border-border rounded-xl p-8 flex items-center gap-6 shadow-usiu hover:-translate-y-1 transition-all">
+                <div className="p-4 rounded-md" style={{ background: "rgba(0,51,102,0.1)" }}>
+                  <Icon className="w-10 h-10 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-[1.8rem] font-bold text-primary leading-none mb-1">{stat.value}</h3>
+                  <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">{stat.label}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        {/* --- LEFT COLUMN: SYSTEM MGMT / USER DASHBOARD --- */}
+        <div className="space-y-8">
+          
+          {/* USER MANAGEMENT (Super Admin Only) */}
+          {isSuperAdmin && (
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-usiu">
+              <div className="px-8 py-6 border-b bg-primary flex justify-between items-center">
+                <h3 className="text-white font-bold flex items-center gap-3">
+                  <UserCog className="w-5 h-5 text-accent" /> Permissions Registry
+                </h3>
+                <span className="text-[10px] text-white/60 font-black uppercase">Live DB Access</span>
+              </div>
+              <div className="p-0 max-h-[500px] overflow-y-auto">
+                <table className="w-full border-collapse">
+                  <thead className="sticky top-0 bg-muted/95 backdrop-blur-sm z-10">
+                    <tr>
+                      <th className="text-left p-4 text-[10px] font-black uppercase text-muted-foreground">User</th>
+                      <th className="text-left p-4 text-[10px] font-black uppercase text-muted-foreground">Current Role</th>
+                      <th className="text-right p-4 text-[10px] font-black uppercase text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userList.map((u) => (
+                      <tr key={u.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                        <td className="p-4">
+                          <p className="font-bold text-sm text-primary">{u.full_name || "New User"}</p>
+                          <p className="text-[10px] text-muted-foreground italic truncate max-w-[150px]">{u.email}</p>
+                        </td>
+                        <td className="p-4">
+                          <span className="px-2 py-1 bg-accent/20 text-primary text-[9px] font-black rounded uppercase">
+                            {u.user_roles?.[0]?.role || "student"}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <select 
+                            onChange={(e) => handleRoleUpdate(u.id, e.target.value)}
+                            className="text-[10px] font-bold p-1 bg-secondary rounded border border-border focus:outline-none"
+                            value={u.user_roles?.[0]?.role || "student"}
+                          >
+                            <option value="student">Student</option>
+                            <option value="libadmin">Librarian</option>
+                            <option value="medadmin">Medic</option>
+                            <option value="clubadmin">Club Mgr</option>
+                            <option value="superadmin">Super Admin</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Current Loans (Student Only) */}
+          {!isSuperAdmin && (
+            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu">
+              <div className="px-8 py-6 border-b border-border flex justify-between items-center" style={{ background: "rgba(0,51,102,0.05)" }}>
+                <h3 className="text-[1.1rem] flex items-center gap-2 text-primary font-bold">
+                  <Clock className="w-5 h-5 text-accent" /> Active Borrowing
+                </h3>
+                <Link to="/library" className="text-primary text-xs font-bold hover:underline">Full History →</Link>
+              </div>
+              <div className="p-8">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="text-left p-2 text-muted-foreground font-bold text-[10px] uppercase">Title</th>
+                      <th className="text-left p-2 text-muted-foreground font-bold text-[10px] uppercase">Due Date</th>
+                      <th className="text-left p-2 text-muted-foreground font-bold text-[10px] uppercase">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loans.filter(l => l.status === "active").length === 0 ? (
+                      <tr><td colSpan={3} className="p-12 text-center text-muted-foreground text-xs italic">No books in your possession currently.</td></tr>
+                    ) : loans.filter(l => l.status === "active").map((loan: any) => {
+                      const isOverdue = new Date(loan.due_date) < new Date();
+                      return (
+                        <tr key={loan.id} className="hover:bg-primary/5 transition-colors border-b border-border/50">
+                          <td className="p-2 py-4 font-bold text-sm text-primary">{loan.books?.title || "Unknown"}</td>
+                          <td className="p-2 py-4 text-xs font-medium text-muted-foreground">{new Date(loan.due_date).toLocaleDateString()}</td>
+                          <td className="p-2 py-4">
+                            <span className={`px-2 py-1 rounded text-[9px] font-black uppercase ${isOverdue ? "bg-destructive text-white" : "bg-[#008000]/10 text-[#008000]"}`}>
+                              {isOverdue ? "Overdue" : "On Time"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* AI ASSISTANT (All Roles) */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu">
+            <div className="px-8 py-6 border-b bg-primary">
+              <h3 className="text-white font-bold flex items-center gap-3">
+                <Bot className="w-5 h-5 text-accent" /> Omni-Intelligence
+              </h3>
+            </div>
+            <div className="p-8">
+              <div className="h-[350px] flex flex-col">
+                <div className="flex-1 overflow-y-auto p-4 bg-muted/30 rounded-xl mb-6 space-y-4">
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} className={`flex items-start gap-3 ${msg.type === "user" ? "justify-end" : ""}`}>
+                      {msg.type === "bot" && <Bot className="w-4 h-4 text-primary mt-1 shrink-0" />}
+                      <span className={`px-4 py-3 rounded-2xl max-w-[85%] text-xs leading-relaxed shadow-sm ${
+                        msg.type === "user" ? "bg-primary text-white font-medium" : "bg-card border border-border text-primary"
+                      }`}>
+                        {msg.text}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                    placeholder="Ask campus intelligence..."
+                    className="flex-1 px-5 py-3 bg-secondary/50 border border-border rounded-xl text-sm focus:outline-none focus:border-accent"
+                  />
+                  <button onClick={sendMessage} className="w-[50px] bg-primary text-white rounded-xl hover:bg-usiu-dark-blue transition-all flex items-center justify-center shadow-lg"><Send className="w-4 h-4" /></button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* --- RIGHT COLUMN: EVENTS & RESOURCES --- */}
+        <div className="space-y-8">
+          
+          {/* Upcoming Events */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu">
+            <div className="px-8 py-6 border-b border-border flex justify-between items-center bg-muted/30">
+              <h3 className="text-[1.1rem] flex items-center gap-2 text-primary font-bold">
+                <CalendarCheck className="w-5 h-5 text-accent" /> Campus Calendar
+              </h3>
+              <Link to="/clubs" className="text-primary text-xs font-bold hover:underline">Social Hub →</Link>
+            </div>
+            <div className="p-8">
+              <div className="space-y-6">
+                {events.length === 0 ? (
+                  <p className="text-center text-muted-foreground text-xs italic py-8">Quiet days ahead. No upcoming events.</p>
+                ) : events.slice(0, 4).map((event: any) => {
+                  const dateObj = new Date(event.date);
+                  return (
+                    <div key={event.id} className="flex items-center gap-5 p-4 border border-border/50 rounded-xl hover:border-accent transition-all group">
+                      <div className="bg-primary text-white px-4 py-3 rounded-xl text-center min-w-[70px] group-hover:scale-105 transition-transform">
+                        <span className="text-lg font-black block leading-none">{dateObj.getDate()}</span>
+                        <span className="text-[9px] font-black uppercase opacity-70 tracking-widest">{dateObj.toLocaleString("default", { month: "short" })}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-primary truncate">{event.title}</h4>
+                        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-tighter truncate">{event.clubs?.name || "Campus"} · {event.location || "TBD"}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Recommended Books */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-usiu">
+            <div className="px-8 py-6 border-b border-border bg-muted/30">
+              <h3 className="text-[1.1rem] flex items-center gap-2 text-primary font-bold">
+                <Lightbulb className="w-5 h-5 text-accent" /> Curated for You
+              </h3>
+            </div>
+            <div className="p-8 space-y-6">
+              {recommendedBooks.length === 0 ? (
+                <p className="text-center text-muted-foreground text-xs italic">Check back later for reading list.</p>
+              ) : recommendedBooks.map((book: any) => (
+                <div key={book.id} className="flex items-center gap-5 p-4 bg-secondary/20 rounded-xl hover:bg-secondary/40 transition-all">
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <Book className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-primary leading-tight">{book.title}</h4>
+                    <p className="text-muted-foreground text-[10px] font-medium mb-1">{book.author}</p>
+                    <span className="text-[#008000] text-[9px] font-black uppercase tracking-widest">Available Now</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
       </div>
     </DashboardLayout>
   );
 };
 
 export default Dashboard;
+
