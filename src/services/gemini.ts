@@ -12,6 +12,18 @@ export const generateCampusResponse = async (userPrompt: string) => {
       return "Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env file.";
     }
 
+    // DEBUG: If the user types "list-models", we will try to list what's available
+    if (userPrompt.toLowerCase() === "debug-models") {
+      try {
+        // This is a bit hacky but helps us see if the key works at all
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
+        const data = await response.json();
+        return "Available Models: " + JSON.stringify(data.models?.map((m: any) => m.name.replace("models/", "")));
+      } catch (e: any) {
+        return "Failed to list models: " + e.message;
+      }
+    }
+
     const context = await getCampusContext();
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
