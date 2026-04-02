@@ -89,8 +89,8 @@ const Medical = () => {
 
   useEffect(() => { fetchData(); }, [user, role]);
 
-  const upcomingAppts = appointments.filter(a => a.status === "scheduled" && new Date(a.date) >= new Date());
-  const pastAppts = appointments.filter(a => a.status !== "scheduled" || new Date(a.date) < new Date());
+  const upcomingAppts = appointments.filter(a => (a.status === "scheduled" || a.status === "pending") && new Date(a.date) >= new Date());
+  const pastAppts = appointments.filter(a => a.status !== "scheduled" && a.status !== "pending" || new Date(a.date) < new Date());
 
   // --- ACTIONS ---
 
