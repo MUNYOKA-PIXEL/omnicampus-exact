@@ -38,6 +38,7 @@ export const generateCampusResponse = async (userPrompt: string) => {
     `;
 
     // Try multiple configurations until one works
+    let lastErrors: string[] = [];
     for (const config of CONFIGS) {
       try {
         console.log(`[Omni-Intelligence] Trying ${config.version} with ${config.model}...`);
@@ -51,20 +52,23 @@ export const generateCampusResponse = async (userPrompt: string) => {
           })
         });
 
+        const data = await response.json();
+
         if (response.ok) {
-          const data = await response.json();
           console.log(`[Omni-Intelligence] Success using ${config.model} (${config.version})`);
           return data.candidates[0].content.parts[0].text;
         }
         
-        const errorDetail = await response.json();
-        console.warn(`[Omni-Intelligence] Failed ${config.model}:`, errorDetail.error?.message);
-      } catch (e) {
-        continue; // Try next config
+        const msg = data.error?.message || "Unknown error";
+        console.warn(`[Omni-Intelligence] Failed ${config.model}:`, msg);
+        lastErrors.push(`${config.model}(${config.version}): ${msg}`);
+      } catch (e: any) {
+        lastErrors.push(`${config.model}: Network/Fetch error`);
+        continue; 
       }
     }
 
-    throw new Error("All Gemini configurations failed. Please ensure 'Generative Language API' is enabled in your Google Cloud Console for this specific API Key.");
+    throw new Error(`All configurations failed. Specific errors: ${lastErrors.join(" | ")}`);
     
   } catch (error: any) {
     console.error("[Omni-Intelligence] Final Error:", error);
