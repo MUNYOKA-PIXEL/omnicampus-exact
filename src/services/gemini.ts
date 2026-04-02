@@ -1,12 +1,12 @@
 import { getCampusContext } from "./campusContext";
 
-const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || "";
-const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
 export const generateCampusResponse = async (userPrompt: string) => {
   try {
-    if (!DEEPSEEK_API_KEY) {
-      return "DeepSeek API Key is missing. Please add VITE_DEEPSEEK_API_KEY to your .env file.";
+    if (!GEMINI_API_KEY) {
+      return "Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env file.";
     }
 
     const context = await getCampusContext();
@@ -30,29 +30,33 @@ export const generateCampusResponse = async (userPrompt: string) => {
       6. Use USIU-Africa terminology.
     `;
 
-    const response = await fetch(DEEPSEEK_URL, {
+    const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: "deepseek-chat",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        stream: false
+        contents: [{
+          parts: [{
+            text: systemPrompt + "\n\nUser Question: " + userPrompt
+          }]
+        }]
       })
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error?.message || "DeepSeek API Error");
+      const errorMessage = errorData.error?.message || "Gemini API Error";
+      
+      if (errorMessage.includes("API_KEY_INVALID")) {
+        throw new Error("Invalid API Key. Please double check the key in your .env file.");
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    return data.candidates[0].content.parts[0].text;
     
   } catch (error: any) {
     console.error("[Omni-Intelligence] Error:", error);
