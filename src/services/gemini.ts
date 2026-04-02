@@ -12,7 +12,8 @@ const CONFIGS = [
 export const generateCampusResponse = async (userPrompt: string) => {
   try {
     if (!GEMINI_API_KEY) {
-      return "Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env file.";
+      console.error("[Omni-Intelligence] API Key not found in environment variables.");
+      return "Gemini API Key is missing. Please ensure VITE_GEMINI_API_KEY is in your .env file AND you have RESTARTED your dev server (npm run dev).";
     }
 
     const context = await getCampusContext();
