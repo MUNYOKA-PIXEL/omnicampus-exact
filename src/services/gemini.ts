@@ -3,10 +3,10 @@ import { getCampusContext } from "./campusContext";
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 
 const CONFIGS = [
+  { version: "v1beta", model: "gemini-1.5-flash-latest" },
   { version: "v1beta", model: "gemini-1.5-flash" },
   { version: "v1", model: "gemini-1.5-flash" },
   { version: "v1beta", model: "gemini-pro" },
-  { version: "v1", model: "gemini-pro" },
 ];
 
 export const generateCampusResponse = async (userPrompt: string) => {
@@ -41,7 +41,6 @@ export const generateCampusResponse = async (userPrompt: string) => {
     let lastErrors: string[] = [];
     for (const config of CONFIGS) {
       try {
-        console.log(`[Omni-Intelligence] Trying ${config.version} with ${config.model}...`);
         const url = `https://generativelanguage.googleapis.com/${config.version}/models/${config.model}:generateContent?key=${GEMINI_API_KEY}`;
         
         const response = await fetch(url, {
@@ -55,20 +54,30 @@ export const generateCampusResponse = async (userPrompt: string) => {
         const data = await response.json();
 
         if (response.ok) {
-          console.log(`[Omni-Intelligence] Success using ${config.model} (${config.version})`);
           return data.candidates[0].content.parts[0].text;
         }
         
         const msg = data.error?.message || "Unknown error";
-        console.warn(`[Omni-Intelligence] Failed ${config.model}:`, msg);
-        lastErrors.push(`${config.model}(${config.version}): ${msg}`);
+        lastErrors.push(`${config.model}: ${msg}`);
       } catch (e: any) {
-        lastErrors.push(`${config.model}: Network/Fetch error`);
+        lastErrors.push(`${config.model}: Network error`);
         continue; 
       }
     }
 
-    throw new Error(`All configurations failed. Specific errors: ${lastErrors.join(" | ")}`);
+    // FINAL DIAGNOSIS: If everything failed, ask the API what IS allowed
+    try {
+      const diagRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
+      const diagData = await diagRes.json();
+      if (diagData.models) {
+        const allowed = diagData.models.map((m: any) => m.name.replace("models/", ""));
+        throw new Error(`Your key only has access to: ${allowed.join(", ")}. Please enable 'Generative Language API' in Google Cloud.`);
+      }
+    } catch (diagErr) {
+      // If diagnosis fails, just throw the original errors
+    }
+
+    throw new Error(`All configurations failed. Specific errors: ${lastErrors.slice(0, 2).join(" | ")}`);
     
   } catch (error: any) {
     console.error("[Omni-Intelligence] Final Error:", error);
