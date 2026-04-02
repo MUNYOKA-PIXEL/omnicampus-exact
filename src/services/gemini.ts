@@ -69,15 +69,20 @@ export const generateCampusResponse = async (userPrompt: string) => {
     try {
       const diagRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
       const diagData = await diagRes.json();
+      
+      if (diagData.error) {
+        throw new Error(`Google API Error: ${diagData.error.message} (Code: ${diagData.error.status})`);
+      }
+      
       if (diagData.models) {
         const allowed = diagData.models.map((m: any) => m.name.replace("models/", ""));
-        throw new Error(`Your key only has access to: ${allowed.join(", ")}. Please enable 'Generative Language API' in Google Cloud.`);
+        throw new Error(`Key valid, but only has access to: ${allowed.join(", ")}.`);
       }
-    } catch (diagErr) {
-      // If diagnosis fails, just throw the original errors
+      
+      throw new Error("API returned no models and no error. Key might be restricted.");
+    } catch (diagErr: any) {
+      throw new Error(`Diagnosis: ${diagErr.message} | Connection: ${lastErrors[0]}`);
     }
-
-    throw new Error(`All configurations failed. Specific errors: ${lastErrors.slice(0, 2).join(" | ")}`);
     
   } catch (error: any) {
     console.error("[Omni-Intelligence] Final Error:", error);
