@@ -1,31 +1,15 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getCampusContext } from "./campusContext";
 
-// Use environment variable for security. 
-// DO NOT HARDCODE. Google will revoke keys pushed to public repos.
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(API_KEY);
+const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || "";
+const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 
 export const generateCampusResponse = async (userPrompt: string) => {
   try {
-    if (!API_KEY) {
-      return "Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env file.";
-    }
-
-    // DEBUG: If the user types "list-models", we will try to list what's available
-    if (userPrompt.toLowerCase() === "debug-models") {
-      try {
-        // This is a bit hacky but helps us see if the key works at all
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
-        const data = await response.json();
-        return "Available Models: " + JSON.stringify(data.models?.map((m: any) => m.name.replace("models/", "")));
-      } catch (e: any) {
-        return "Failed to list models: " + e.message;
-      }
+    if (!DEEPSEEK_API_KEY) {
+      return "DeepSeek API Key is missing. Please add VITE_DEEPSEEK_API_KEY to your .env file.";
     }
 
     const context = await getCampusContext();
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const systemPrompt = `
       You are Omni-Intelligence, the official AI assistant for OmniCampus at USIU-Africa. 
@@ -46,17 +30,32 @@ export const generateCampusResponse = async (userPrompt: string) => {
       6. Use USIU-Africa terminology.
     `;
 
-    const result = await model.generateContent(systemPrompt + "\n\nUser Query: " + userPrompt);
-    const response = await result.response;
-    return response.text();
+    const response = await fetch(DEEPSEEK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        stream: false
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || "DeepSeek API Error");
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
     
   } catch (error: any) {
     console.error("[Omni-Intelligence] Error:", error);
-    
-    if (error?.message?.includes("404")) {
-      return "Model not found (404). Ensure 'Generative Language API' is enabled in Google Cloud and that your API key is valid and NOT revoked.";
-    }
-    
     return `Connection Error: ${error?.message || "Something went wrong"}. Please check your configuration.`;
   }
 };
