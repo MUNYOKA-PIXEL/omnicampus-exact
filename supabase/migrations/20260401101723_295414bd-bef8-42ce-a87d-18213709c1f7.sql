@@ -16,7 +16,7 @@ END;
 $$ LANGUAGE plpgsql SET search_path = public;
 
 -- ============ PROFILES ============
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT,
   email TEXT,
@@ -31,12 +31,13 @@ CREATE TABLE public.profiles (
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
 CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ============ USER ROLES ============
-CREATE TABLE public.user_roles (
+CREATE TABLE IF NOT EXISTS public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   role app_role NOT NULL,
@@ -60,7 +61,7 @@ AS $$
 $$;
 
 -- ============ BOOKS ============
-CREATE TABLE public.books (
+CREATE TABLE IF NOT EXISTS public.books (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   author TEXT NOT NULL,
@@ -74,12 +75,13 @@ CREATE TABLE public.books (
 
 ALTER TABLE public.books ENABLE ROW LEVEL SECURITY;
 
+DROP TRIGGER IF EXISTS update_books_updated_at ON public.books;
 CREATE TRIGGER update_books_updated_at
   BEFORE UPDATE ON public.books
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ============ BOOK LOANS ============
-CREATE TABLE public.book_loans (
+CREATE TABLE IF NOT EXISTS public.book_loans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   book_id UUID REFERENCES public.books(id) ON DELETE CASCADE NOT NULL,
@@ -93,11 +95,11 @@ CREATE TABLE public.book_loans (
 
 ALTER TABLE public.book_loans ENABLE ROW LEVEL SECURITY;
 
-CREATE INDEX idx_book_loans_user ON public.book_loans(user_id);
-CREATE INDEX idx_book_loans_status ON public.book_loans(status);
+CREATE INDEX IF NOT EXISTS idx_book_loans_user ON public.book_loans(user_id);
+CREATE INDEX IF NOT EXISTS idx_book_loans_status ON public.book_loans(status);
 
 -- ============ BOOK REQUESTS ============
-CREATE TABLE public.book_requests (
+CREATE TABLE IF NOT EXISTS public.book_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
@@ -110,7 +112,7 @@ CREATE TABLE public.book_requests (
 ALTER TABLE public.book_requests ENABLE ROW LEVEL SECURITY;
 
 -- ============ LOST & FOUND ============
-CREATE TABLE public.lost_found_items (
+CREATE TABLE IF NOT EXISTS public.lost_found_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('lost', 'found')),
@@ -125,15 +127,16 @@ CREATE TABLE public.lost_found_items (
 
 ALTER TABLE public.lost_found_items ENABLE ROW LEVEL SECURITY;
 
+DROP TRIGGER IF EXISTS update_lost_found_updated_at ON public.lost_found_items;
 CREATE TRIGGER update_lost_found_updated_at
   BEFORE UPDATE ON public.lost_found_items
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-CREATE INDEX idx_lost_found_type ON public.lost_found_items(type);
-CREATE INDEX idx_lost_found_status ON public.lost_found_items(status);
+CREATE INDEX IF NOT EXISTS idx_lost_found_type ON public.lost_found_items(type);
+CREATE INDEX IF NOT EXISTS idx_lost_found_status ON public.lost_found_items(status);
 
 -- ============ CLUBS ============
-CREATE TABLE public.clubs (
+CREATE TABLE IF NOT EXISTS public.clubs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
@@ -147,12 +150,13 @@ CREATE TABLE public.clubs (
 
 ALTER TABLE public.clubs ENABLE ROW LEVEL SECURITY;
 
+DROP TRIGGER IF EXISTS update_clubs_updated_at ON public.clubs;
 CREATE TRIGGER update_clubs_updated_at
   BEFORE UPDATE ON public.clubs
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ============ CLUB MEMBERSHIPS ============
-CREATE TABLE public.club_memberships (
+CREATE TABLE IF NOT EXISTS public.club_memberships (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   club_id UUID REFERENCES public.clubs(id) ON DELETE CASCADE NOT NULL,
@@ -163,7 +167,7 @@ CREATE TABLE public.club_memberships (
 ALTER TABLE public.club_memberships ENABLE ROW LEVEL SECURITY;
 
 -- ============ CLUB EVENTS ============
-CREATE TABLE public.club_events (
+CREATE TABLE IF NOT EXISTS public.club_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID REFERENCES public.clubs(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
@@ -177,7 +181,7 @@ CREATE TABLE public.club_events (
 ALTER TABLE public.club_events ENABLE ROW LEVEL SECURITY;
 
 -- ============ EVENT RSVPS ============
-CREATE TABLE public.event_rsvps (
+CREATE TABLE IF NOT EXISTS public.event_rsvps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   event_id UUID REFERENCES public.club_events(id) ON DELETE CASCADE NOT NULL,
@@ -188,7 +192,7 @@ CREATE TABLE public.event_rsvps (
 ALTER TABLE public.event_rsvps ENABLE ROW LEVEL SECURITY;
 
 -- ============ DOCTORS ============
-CREATE TABLE public.doctors (
+CREATE TABLE IF NOT EXISTS public.doctors (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   specialty TEXT NOT NULL,
@@ -200,7 +204,7 @@ CREATE TABLE public.doctors (
 ALTER TABLE public.doctors ENABLE ROW LEVEL SECURITY;
 
 -- ============ APPOINTMENTS ============
-CREATE TABLE public.appointments (
+CREATE TABLE IF NOT EXISTS public.appointments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   doctor_id UUID REFERENCES public.doctors(id) ON DELETE CASCADE NOT NULL,
@@ -214,15 +218,16 @@ CREATE TABLE public.appointments (
 
 ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
 
+DROP TRIGGER IF EXISTS update_appointments_updated_at ON public.appointments;
 CREATE TRIGGER update_appointments_updated_at
   BEFORE UPDATE ON public.appointments
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-CREATE INDEX idx_appointments_user ON public.appointments(user_id);
-CREATE INDEX idx_appointments_status ON public.appointments(status);
+CREATE INDEX IF NOT EXISTS idx_appointments_user ON public.appointments(user_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_status ON public.appointments(status);
 
 -- ============ MEDICATIONS ============
-CREATE TABLE public.medications (
+CREATE TABLE IF NOT EXISTS public.medications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   type TEXT NOT NULL,
@@ -236,67 +241,105 @@ ALTER TABLE public.medications ENABLE ROW LEVEL SECURITY;
 -- ============ RLS POLICIES ============
 
 -- Profiles
+DROP POLICY IF EXISTS "Anyone authenticated can view profiles" ON public.profiles;
 CREATE POLICY "Anyone authenticated can view profiles" ON public.profiles FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
 
 -- User roles
+DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
 CREATE POLICY "Users can view own roles" ON public.user_roles FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can view all roles" ON public.user_roles;
 CREATE POLICY "Admins can view all roles" ON public.user_roles FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+DROP POLICY IF EXISTS "Admins can manage roles" ON public.user_roles;
 CREATE POLICY "Admins can manage roles" ON public.user_roles FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
 -- Books
+DROP POLICY IF EXISTS "Anyone authenticated can view books" ON public.books;
 CREATE POLICY "Anyone authenticated can view books" ON public.books FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admins can manage books" ON public.books;
 CREATE POLICY "Admins can manage books" ON public.books FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
 -- Book loans
+DROP POLICY IF EXISTS "Users can view own loans" ON public.book_loans;
 CREATE POLICY "Users can view own loans" ON public.book_loans FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can view all loans" ON public.book_loans;
 CREATE POLICY "Admins can view all loans" ON public.book_loans FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+DROP POLICY IF EXISTS "Users can create own loans" ON public.book_loans;
 CREATE POLICY "Users can create own loans" ON public.book_loans FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can manage all loans" ON public.book_loans;
 CREATE POLICY "Admins can manage all loans" ON public.book_loans FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
 -- Book requests
+DROP POLICY IF EXISTS "Users can view own requests" ON public.book_requests;
 CREATE POLICY "Users can view own requests" ON public.book_requests FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own requests" ON public.book_requests;
 CREATE POLICY "Users can create own requests" ON public.book_requests FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can view all requests" ON public.book_requests;
 CREATE POLICY "Admins can view all requests" ON public.book_requests FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+DROP POLICY IF EXISTS "Admins can manage all requests" ON public.book_requests;
 CREATE POLICY "Admins can manage all requests" ON public.book_requests FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
 -- Lost & Found
+DROP POLICY IF EXISTS "Anyone authenticated can view items" ON public.lost_found_items;
 CREATE POLICY "Anyone authenticated can view items" ON public.lost_found_items FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users can create own reports" ON public.lost_found_items;
 CREATE POLICY "Users can create own reports" ON public.lost_found_items FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own reports" ON public.lost_found_items;
 CREATE POLICY "Users can update own reports" ON public.lost_found_items FOR UPDATE TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can manage all items" ON public.lost_found_items;
 CREATE POLICY "Admins can manage all items" ON public.lost_found_items FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
 -- Clubs
+DROP POLICY IF EXISTS "Anyone authenticated can view clubs" ON public.clubs;
 CREATE POLICY "Anyone authenticated can view clubs" ON public.clubs FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admins can manage clubs" ON public.clubs;
 CREATE POLICY "Admins can manage clubs" ON public.clubs FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
 -- Club memberships
+DROP POLICY IF EXISTS "Anyone authenticated can view memberships" ON public.club_memberships;
 CREATE POLICY "Anyone authenticated can view memberships" ON public.club_memberships FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users can join clubs" ON public.club_memberships;
 CREATE POLICY "Users can join clubs" ON public.club_memberships FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can leave clubs" ON public.club_memberships;
 CREATE POLICY "Users can leave clubs" ON public.club_memberships FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
 -- Club events
+DROP POLICY IF EXISTS "Anyone authenticated can view events" ON public.club_events;
 CREATE POLICY "Anyone authenticated can view events" ON public.club_events FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admins can manage events" ON public.club_events;
 CREATE POLICY "Admins can manage events" ON public.club_events FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
 -- Event RSVPs
+DROP POLICY IF EXISTS "Anyone authenticated can view rsvps" ON public.event_rsvps;
 CREATE POLICY "Anyone authenticated can view rsvps" ON public.event_rsvps FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users can rsvp" ON public.event_rsvps;
 CREATE POLICY "Users can rsvp" ON public.event_rsvps FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can cancel rsvp" ON public.event_rsvps;
 CREATE POLICY "Users can cancel rsvp" ON public.event_rsvps FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
 -- Doctors
+DROP POLICY IF EXISTS "Anyone authenticated can view doctors" ON public.doctors;
 CREATE POLICY "Anyone authenticated can view doctors" ON public.doctors FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admins can manage doctors" ON public.doctors;
 CREATE POLICY "Admins can manage doctors" ON public.doctors FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
 -- Appointments
+DROP POLICY IF EXISTS "Users can view own appointments" ON public.appointments;
 CREATE POLICY "Users can view own appointments" ON public.appointments FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own appointments" ON public.appointments;
 CREATE POLICY "Users can create own appointments" ON public.appointments FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own appointments" ON public.appointments;
 CREATE POLICY "Users can update own appointments" ON public.appointments FOR UPDATE TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can manage all appointments" ON public.appointments;
 CREATE POLICY "Admins can manage all appointments" ON public.appointments FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
 -- Medications
+DROP POLICY IF EXISTS "Anyone authenticated can view medications" ON public.medications;
 CREATE POLICY "Anyone authenticated can view medications" ON public.medications FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admins can manage medications" ON public.medications;
 CREATE POLICY "Admins can manage medications" ON public.medications FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
 -- ============ TRIGGERS FOR AUTO-PROFILE & ROLE ON SIGNUP ============
@@ -318,13 +361,22 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ============ STORAGE BUCKET ============
-INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true);
+-- Use a DO block to insert bucket if not exists to avoid error
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'avatars') THEN
+    INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true);
+  END IF;
+END $$;
 
+DROP POLICY IF EXISTS "Avatar images are publicly accessible" ON storage.objects;
 CREATE POLICY "Avatar images are publicly accessible" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
+DROP POLICY IF EXISTS "Users can upload their own avatar" ON storage.objects;
 CREATE POLICY "Users can upload their own avatar" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+DROP POLICY IF EXISTS "Users can update their own avatar" ON storage.objects;
 CREATE POLICY "Users can update their own avatar" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);

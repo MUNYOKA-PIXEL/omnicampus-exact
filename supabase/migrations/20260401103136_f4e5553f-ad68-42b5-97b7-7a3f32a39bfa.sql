@@ -57,20 +57,26 @@ DROP POLICY IF EXISTS "Superadmin can view all roles" ON public.user_roles;
 DROP FUNCTION IF EXISTS public.has_role(_user_id uuid, _role app_role);
 DROP FUNCTION IF EXISTS public.is_any_admin(_user_id uuid);
 
--- Rename old enum, create new
-ALTER TYPE public.app_role RENAME TO app_role_old;
-CREATE TYPE public.app_role AS ENUM ('superadmin', 'libadmin', 'medadmin', 'clubadmin', 'student');
+-- Rename old enum, create new (idempotently)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role' AND NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'app_role'::regtype AND enumlabel = 'superadmin')) THEN
+    ALTER TYPE public.app_role RENAME TO app_role_old;
+    CREATE TYPE public.app_role AS ENUM ('superadmin', 'libadmin', 'medadmin', 'clubadmin', 'student');
 
-ALTER TABLE public.user_roles 
-  ALTER COLUMN role TYPE public.app_role 
-  USING (
-    CASE role::text
-      WHEN 'admin' THEN 'superadmin'::public.app_role
-      WHEN 'student' THEN 'student'::public.app_role
-    END
-  );
+    ALTER TABLE public.user_roles 
+      ALTER COLUMN role TYPE public.app_role 
+      USING (
+        CASE role::text
+          WHEN 'admin' THEN 'superadmin'::public.app_role
+          WHEN 'student' THEN 'student'::public.app_role
+        END
+      );
 
-DROP TYPE public.app_role_old;
+    DROP TYPE public.app_role_old;
+  ELSIF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
+    CREATE TYPE public.app_role AS ENUM ('superadmin', 'libadmin', 'medadmin', 'clubadmin', 'student');
+  END IF;
+END $$;
 
 -- Recreate functions
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
