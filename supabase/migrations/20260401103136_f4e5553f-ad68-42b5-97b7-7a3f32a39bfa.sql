@@ -54,8 +54,8 @@ DROP POLICY IF EXISTS "Superadmin can manage roles" ON public.user_roles;
 DROP POLICY IF EXISTS "Superadmin can view all roles" ON public.user_roles;
 
 -- Drop old function
-DROP FUNCTION IF EXISTS public.has_role(_user_id uuid, _role app_role);
-DROP FUNCTION IF EXISTS public.is_any_admin(_user_id uuid);
+DROP FUNCTION IF EXISTS public.has_role(_user_id uuid, _role app_role) CASCADE;
+DROP FUNCTION IF EXISTS public.is_any_admin(_user_id uuid) CASCADE;
 
 -- Rename old enum, create new (idempotently)
 DO $$ BEGIN
