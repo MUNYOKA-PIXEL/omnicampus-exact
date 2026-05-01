@@ -1,6 +1,10 @@
 
 -- Create role enum
-CREATE TYPE public.app_role AS ENUM ('admin', 'student');
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
+    CREATE TYPE public.app_role AS ENUM ('admin', 'student');
+  END IF;
+END $$;
 
 -- Timestamp update function
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
