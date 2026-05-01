@@ -19,4 +19,4 @@ CREATE POLICY "Admins view all requests"
 ON public.book_requests 
 FOR SELECT 
 TO authenticated 
-USING (public.has_role(auth.uid(), 'admin'));
+USING (public.has_role(auth.uid(), 'superadmin'));

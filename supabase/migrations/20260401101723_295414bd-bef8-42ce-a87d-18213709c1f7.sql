@@ -2,7 +2,7 @@
 -- Create role enum
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
-    CREATE TYPE public.app_role AS ENUM ('admin', 'student');
+    CREATE TYPE public.app_role AS ENUM ('superadmin', 'libadmin', 'medadmin', 'clubadmin', 'student', 'admin');
   END IF;
 END $$;
 
@@ -252,25 +252,25 @@ CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE TO au
 DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
 CREATE POLICY "Users can view own roles" ON public.user_roles FOR SELECT TO authenticated USING (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Admins can view all roles" ON public.user_roles;
-CREATE POLICY "Admins can view all roles" ON public.user_roles FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can view all roles" ON public.user_roles FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 DROP POLICY IF EXISTS "Admins can manage roles" ON public.user_roles;
-CREATE POLICY "Admins can manage roles" ON public.user_roles FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage roles" ON public.user_roles FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 
 -- Books
 DROP POLICY IF EXISTS "Anyone authenticated can view books" ON public.books;
 CREATE POLICY "Anyone authenticated can view books" ON public.books FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Admins can manage books" ON public.books;
-CREATE POLICY "Admins can manage books" ON public.books FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage books" ON public.books FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 
 -- Book loans
 DROP POLICY IF EXISTS "Users can view own loans" ON public.book_loans;
 CREATE POLICY "Users can view own loans" ON public.book_loans FOR SELECT TO authenticated USING (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Admins can view all loans" ON public.book_loans;
-CREATE POLICY "Admins can view all loans" ON public.book_loans FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can view all loans" ON public.book_loans FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 DROP POLICY IF EXISTS "Users can create own loans" ON public.book_loans;
 CREATE POLICY "Users can create own loans" ON public.book_loans FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Admins can manage all loans" ON public.book_loans;
-CREATE POLICY "Admins can manage all loans" ON public.book_loans FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage all loans" ON public.book_loans FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 
 -- Book requests
 DROP POLICY IF EXISTS "Users can view own requests" ON public.book_requests;
@@ -278,9 +278,9 @@ CREATE POLICY "Users can view own requests" ON public.book_requests FOR SELECT T
 DROP POLICY IF EXISTS "Users can create own requests" ON public.book_requests;
 CREATE POLICY "Users can create own requests" ON public.book_requests FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Admins can view all requests" ON public.book_requests;
-CREATE POLICY "Admins can view all requests" ON public.book_requests FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can view all requests" ON public.book_requests FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 DROP POLICY IF EXISTS "Admins can manage all requests" ON public.book_requests;
-CREATE POLICY "Admins can manage all requests" ON public.book_requests FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage all requests" ON public.book_requests FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 
 -- Lost & Found
 DROP POLICY IF EXISTS "Anyone authenticated can view items" ON public.lost_found_items;
@@ -290,13 +290,13 @@ CREATE POLICY "Users can create own reports" ON public.lost_found_items FOR INSE
 DROP POLICY IF EXISTS "Users can update own reports" ON public.lost_found_items;
 CREATE POLICY "Users can update own reports" ON public.lost_found_items FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Admins can manage all items" ON public.lost_found_items;
-CREATE POLICY "Admins can manage all items" ON public.lost_found_items FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage all items" ON public.lost_found_items FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 
 -- Clubs
 DROP POLICY IF EXISTS "Anyone authenticated can view clubs" ON public.clubs;
 CREATE POLICY "Anyone authenticated can view clubs" ON public.clubs FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Admins can manage clubs" ON public.clubs;
-CREATE POLICY "Admins can manage clubs" ON public.clubs FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage clubs" ON public.clubs FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 
 -- Club memberships
 DROP POLICY IF EXISTS "Anyone authenticated can view memberships" ON public.club_memberships;
@@ -310,7 +310,7 @@ CREATE POLICY "Users can leave clubs" ON public.club_memberships FOR DELETE TO a
 DROP POLICY IF EXISTS "Anyone authenticated can view events" ON public.club_events;
 CREATE POLICY "Anyone authenticated can view events" ON public.club_events FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Admins can manage events" ON public.club_events;
-CREATE POLICY "Admins can manage events" ON public.club_events FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage events" ON public.club_events FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 
 -- Event RSVPs
 DROP POLICY IF EXISTS "Anyone authenticated can view rsvps" ON public.event_rsvps;
@@ -324,7 +324,7 @@ CREATE POLICY "Users can cancel rsvp" ON public.event_rsvps FOR DELETE TO authen
 DROP POLICY IF EXISTS "Anyone authenticated can view doctors" ON public.doctors;
 CREATE POLICY "Anyone authenticated can view doctors" ON public.doctors FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Admins can manage doctors" ON public.doctors;
-CREATE POLICY "Admins can manage doctors" ON public.doctors FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage doctors" ON public.doctors FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 
 -- Appointments
 DROP POLICY IF EXISTS "Users can view own appointments" ON public.appointments;
@@ -334,13 +334,13 @@ CREATE POLICY "Users can create own appointments" ON public.appointments FOR INS
 DROP POLICY IF EXISTS "Users can update own appointments" ON public.appointments;
 CREATE POLICY "Users can update own appointments" ON public.appointments FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Admins can manage all appointments" ON public.appointments;
-CREATE POLICY "Admins can manage all appointments" ON public.appointments FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage all appointments" ON public.appointments FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 
 -- Medications
 DROP POLICY IF EXISTS "Anyone authenticated can view medications" ON public.medications;
 CREATE POLICY "Anyone authenticated can view medications" ON public.medications FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Admins can manage medications" ON public.medications;
-CREATE POLICY "Admins can manage medications" ON public.medications FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage medications" ON public.medications FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'superadmin'));
 
 -- ============ TRIGGERS FOR AUTO-PROFILE & ROLE ON SIGNUP ============
 
