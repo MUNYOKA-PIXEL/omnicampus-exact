@@ -28,9 +28,8 @@ export const generateCampusResponse = async (
       Your goal is to help students navigate campus life efficiently.
 
       Student Profile:
-      - Major: ${userProfile?.course || "Not specified"}
+      - Course: ${userProfile?.course || "Not specified"}
       - Year of Study: ${userProfile?.year_of_study || "Not specified"}
-      - Student ID (UUID): ${userId || "Not specified"}
 
       Current Campus Context:
       - Available Books: ${context.availableBooks.join(", ") || "None currently listed"}
@@ -45,7 +44,7 @@ export const generateCampusResponse = async (
       4. Use USIU-Africa and OmniCampus terminology.
       5. When using tools, always summarize the results for the student in a helpful way.
       6. If a tool fails, provide a polite fallback explanation.
-      7. Use the provided Student ID (UUID) for any tool calls that require a userId.
+      7. NEVER ask the student for their Student ID or UUID. You have silent access to it.
     `;
 
     const tools = [
@@ -54,24 +53,12 @@ export const generateCampusResponse = async (
           {
             name: "countAppointments",
             description: "Get the count of appointments for the current user.",
-            parameters: {
-              type: "object",
-              properties: {
-                userId: { type: "string", description: "The UUID of the logged-in student." }
-              },
-              required: ["userId"]
-            }
+            parameters: { type: "object", properties: {} }
           },
           {
             name: "readAppointments",
             description: "Retrieve a list of upcoming appointments for the current user.",
-            parameters: {
-              type: "object",
-              properties: {
-                userId: { type: "string", description: "The UUID of the logged-in student." }
-              },
-              required: ["userId"]
-            }
+            parameters: { type: "object", properties: {} }
           },
           {
             name: "insertAppointment",
@@ -79,13 +66,12 @@ export const generateCampusResponse = async (
             parameters: {
               type: "object",
               properties: {
-                user_id: { type: "string", description: "The student's UUID." },
                 doctor_id: { type: "string", description: "The doctor's UUID." },
                 date: { type: "string", description: "Appointment date (YYYY-MM-DD)." },
                 time: { type: "string", description: "Appointment time (e.g., '10:00 AM')." },
                 reason: { type: "string", description: "Optional reason for the visit." }
               },
-              required: ["user_id", "doctor_id", "date", "time"]
+              required: ["doctor_id", "date", "time"]
             }
           },
           {
@@ -130,7 +116,8 @@ export const generateCampusResponse = async (
           const toolFn = toolRegistry[name];
           
           if (toolFn) {
-            const toolResult = await toolFn(args);
+            // Silently inject userId into the tool call
+            const toolResult = await toolFn(userId || "", args);
             
             // Second call to provide the result back to Gemini
             const secondResponse = await fetch(url, {

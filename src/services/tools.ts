@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 /**
  * Counts the number of appointments for a specific user.
  */
-export const countAppointments = async ({ userId }: { userId: string }) => {
+export const countAppointments = async (userId: string) => {
   try {
     const { count, error } = await supabase
       .from("appointments")
@@ -11,6 +11,14 @@ export const countAppointments = async ({ userId }: { userId: string }) => {
       .eq("user_id", userId);
     
     if (error) throw error;
+
+    // Audit log
+    await supabase.from("ai_audit_logs").insert({
+      user_id: userId,
+      action: "AI_COUNT_APPOINTMENTS",
+      details: { count: count || 0 }
+    });
+
     return `You have ${count || 0} appointments scheduled.`;
   } catch (error) {
     console.error("Error counting appointments:", error);
@@ -21,7 +29,7 @@ export const countAppointments = async ({ userId }: { userId: string }) => {
 /**
  * Reads upcoming appointments for a specific user.
  */
-export const readAppointments = async ({ userId }: { userId: string }) => {
+export const readAppointments = async (userId: string) => {
   try {
     const { data, error } = await supabase
       .from("appointments")
@@ -30,6 +38,14 @@ export const readAppointments = async ({ userId }: { userId: string }) => {
       .order("date", { ascending: true });
     
     if (error) throw error;
+
+    // Audit log
+    await supabase.from("ai_audit_logs").insert({
+      user_id: userId,
+      action: "AI_READ_APPOINTMENTS",
+      details: { appointment_count: data?.length || 0 }
+    });
+
     if (!data || data.length === 0) return "You have no upcoming appointments.";
     
     const list = data.map(a => `- ${a.date} at ${a.time} with Dr. ${a.doctors?.name || 'Unknown'} (Reason: ${a.reason || 'None'})`).join("\n");
@@ -43,11 +59,11 @@ export const readAppointments = async ({ userId }: { userId: string }) => {
 /**
  * Books a new appointment for a student.
  */
-export const insertAppointment = async (args: { user_id: string; doctor_id: string; date: string; time: string; reason?: string }) => {
+export const insertAppointment = async (userId: string, args: { doctor_id: string; date: string; time: string; reason?: string }) => {
   try {
     const { data, error } = await supabase
       .from("appointments")
-      .insert([args])
+      .insert([{ ...args, user_id: userId }])
       .select();
     
     if (error) throw error;
@@ -55,7 +71,7 @@ export const insertAppointment = async (args: { user_id: string; doctor_id: stri
     
     // Audit log for security
     await supabase.from("ai_audit_logs").insert({
-      user_id: args.user_id,
+      user_id: userId,
       action: "AI_BOOK_APPOINTMENT",
       details: { ...args, appointment_id: data[0].id }
     });
@@ -70,13 +86,21 @@ export const insertAppointment = async (args: { user_id: string; doctor_id: stri
 /**
  * Counts total available courses in the USIU catalog.
  */
-export const countCourses = async () => {
+export const countCourses = async (userId?: string) => {
   try {
     const { count, error } = await supabase
       .from("courses")
       .select("*", { count: "exact", head: true });
     
     if (error) throw error;
+
+    // Audit log
+    await supabase.from("ai_audit_logs").insert({
+      user_id: userId || null,
+      action: "AI_COUNT_COURSES",
+      details: { count: count || 0 }
+    });
+
     return `There are currently ${count || 0} courses available in the USIU catalog.`;
   } catch (error) {
     console.error("Error counting courses:", error);
@@ -87,7 +111,7 @@ export const countCourses = async () => {
 /**
  * Lists available courses.
  */
-export const readCourses = async () => {
+export const readCourses = async (userId?: string) => {
   try {
     const { data, error } = await supabase
       .from("courses")
@@ -95,6 +119,14 @@ export const readCourses = async () => {
       .limit(10);
     
     if (error) throw error;
+
+    // Audit log
+    await supabase.from("ai_audit_logs").insert({
+      user_id: userId || null,
+      action: "AI_READ_COURSES",
+      details: { course_count: data?.length || 0 }
+    });
+
     if (!data || data.length === 0) return "No courses are currently listed in the system.";
     
     const list = data.map(c => `- ${c.name} (${c.department}) - ${c.credits} Credits`).join("\n");
@@ -106,10 +138,10 @@ export const readCourses = async () => {
 };
 
 // Map of tool names to their implementation functions
-export const toolRegistry: Record<string, (args: Record<string, any>) => Promise<string>> = {
-  countAppointments: (args: { userId: string }) => countAppointments(args),
-  readAppointments: (args: { userId: string }) => readAppointments(args),
-  insertAppointment: (args: { user_id: string; doctor_id: string; date: string; time: string; reason?: string }) => insertAppointment(args),
-  countCourses: () => countCourses(),
-  readCourses: () => readCourses()
+export const toolRegistry: Record<string, (userId: string, args: Record<string, any>) => Promise<string>> = {
+  countAppointments: (userId: string) => countAppointments(userId),
+  readAppointments: (userId: string) => readAppointments(userId),
+  insertAppointment: (userId: string, args: any) => insertAppointment(userId, args),
+  countCourses: (userId: string) => countCourses(userId),
+  readCourses: (userId: string) => readCourses(userId)
 };
