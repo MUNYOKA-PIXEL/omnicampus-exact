@@ -11,7 +11,7 @@ export const getCampusContext = async (): Promise<CampusContext> => {
   try {
     const [books, events, doctors, lostItems] = await Promise.all([
       supabase.from("books").select("title, author").eq("available", true).limit(5),
-      supabase.from("events").select("title, date").gte("date", new Date().toISOString()).limit(5),
+      supabase.from("club_events").select("title, date").gte("date", new Date().toISOString()).limit(5),
       supabase.from("doctors").select("name, specialty").eq("available", true),
       supabase.from("lost_found_items").select("title, category, status").order("date_reported", { ascending: false }).limit(5),
     ]);
