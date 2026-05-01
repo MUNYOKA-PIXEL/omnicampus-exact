@@ -99,73 +99,115 @@ BEGIN
 END;
 $$;
 
--- profiles
+DROP POLICY IF EXISTS "Anyone can view profiles" ON public.profiles;
 CREATE POLICY "Anyone can view profiles" ON public.profiles FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
 
 -- user_roles
+DROP POLICY IF EXISTS "Superadmin manage roles" ON public.user_roles;
 CREATE POLICY "Superadmin manage roles" ON public.user_roles FOR ALL TO authenticated USING (has_role(auth.uid(), 'superadmin'));
+DROP POLICY IF EXISTS "Users view own roles" ON public.user_roles;
 CREATE POLICY "Users view own roles" ON public.user_roles FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
 -- appointments
+DROP POLICY IF EXISTS "Superadmin full appointments" ON public.appointments;
 CREATE POLICY "Superadmin full appointments" ON public.appointments FOR ALL TO authenticated USING (has_role(auth.uid(), 'superadmin'));
+DROP POLICY IF EXISTS "Medadmin manage appointments" ON public.appointments;
 CREATE POLICY "Medadmin manage appointments" ON public.appointments FOR ALL TO authenticated USING (has_role(auth.uid(), 'medadmin'));
+DROP POLICY IF EXISTS "Users view own appointments" ON public.appointments;
 CREATE POLICY "Users view own appointments" ON public.appointments FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users create own appointments" ON public.appointments;
 CREATE POLICY "Users create own appointments" ON public.appointments FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users update own appointments" ON public.appointments;
 CREATE POLICY "Users update own appointments" ON public.appointments FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 
 -- book_loans
+DROP POLICY IF EXISTS "Superadmin full loans" ON public.book_loans;
 CREATE POLICY "Superadmin full loans" ON public.book_loans FOR ALL TO authenticated USING (has_role(auth.uid(), 'superadmin'));
+DROP POLICY IF EXISTS "Libadmin manage loans" ON public.book_loans;
 CREATE POLICY "Libadmin manage loans" ON public.book_loans FOR ALL TO authenticated USING (has_role(auth.uid(), 'libadmin'));
+DROP POLICY IF EXISTS "Users view own loans" ON public.book_loans;
 CREATE POLICY "Users view own loans" ON public.book_loans FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users create own loans" ON public.book_loans;
 CREATE POLICY "Users create own loans" ON public.book_loans FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
 -- book_requests
+DROP POLICY IF EXISTS "Superadmin full requests" ON public.book_requests;
 CREATE POLICY "Superadmin full requests" ON public.book_requests FOR ALL TO authenticated USING (has_role(auth.uid(), 'superadmin'));
+DROP POLICY IF EXISTS "Libadmin manage requests" ON public.book_requests;
 CREATE POLICY "Libadmin manage requests" ON public.book_requests FOR ALL TO authenticated USING (has_role(auth.uid(), 'libadmin'));
+DROP POLICY IF EXISTS "Users view own requests" ON public.book_requests;
 CREATE POLICY "Users view own requests" ON public.book_requests FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users create own requests" ON public.book_requests;
 CREATE POLICY "Users create own requests" ON public.book_requests FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
 -- books
+DROP POLICY IF EXISTS "Superadmin manage books" ON public.books;
 CREATE POLICY "Superadmin manage books" ON public.books FOR ALL TO authenticated USING (has_role(auth.uid(), 'superadmin'));
+DROP POLICY IF EXISTS "Libadmin manage books" ON public.books;
 CREATE POLICY "Libadmin manage books" ON public.books FOR ALL TO authenticated USING (has_role(auth.uid(), 'libadmin'));
+DROP POLICY IF EXISTS "Anyone view books" ON public.books;
 CREATE POLICY "Anyone view books" ON public.books FOR SELECT TO authenticated USING (true);
 
 -- club_events
+DROP POLICY IF EXISTS "Superadmin manage events" ON public.club_events;
 CREATE POLICY "Superadmin manage events" ON public.club_events FOR ALL TO authenticated USING (has_role(auth.uid(), 'superadmin'));
+DROP POLICY IF EXISTS "Clubadmin manage events" ON public.club_events;
 CREATE POLICY "Clubadmin manage events" ON public.club_events FOR ALL TO authenticated USING (has_role(auth.uid(), 'clubadmin'));
+DROP POLICY IF EXISTS "Anyone view events" ON public.club_events;
 CREATE POLICY "Anyone view events" ON public.club_events FOR SELECT TO authenticated USING (true);
 
 -- club_memberships
+DROP POLICY IF EXISTS "Anyone view memberships" ON public.club_memberships;
 CREATE POLICY "Anyone view memberships" ON public.club_memberships FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users join clubs" ON public.club_memberships;
 CREATE POLICY "Users join clubs" ON public.club_memberships FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users leave clubs" ON public.club_memberships;
 CREATE POLICY "Users leave clubs" ON public.club_memberships FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
 -- clubs
+DROP POLICY IF EXISTS "Superadmin manage clubs" ON public.clubs;
 CREATE POLICY "Superadmin manage clubs" ON public.clubs FOR ALL TO authenticated USING (has_role(auth.uid(), 'superadmin'));
+DROP POLICY IF EXISTS "Clubadmin manage clubs" ON public.clubs;
 CREATE POLICY "Clubadmin manage clubs" ON public.clubs FOR ALL TO authenticated USING (has_role(auth.uid(), 'clubadmin'));
+DROP POLICY IF EXISTS "Anyone view clubs" ON public.clubs;
 CREATE POLICY "Anyone view clubs" ON public.clubs FOR SELECT TO authenticated USING (true);
 
 -- doctors
+DROP POLICY IF EXISTS "Superadmin manage doctors" ON public.doctors;
 CREATE POLICY "Superadmin manage doctors" ON public.doctors FOR ALL TO authenticated USING (has_role(auth.uid(), 'superadmin'));
+DROP POLICY IF EXISTS "Medadmin manage doctors" ON public.doctors;
 CREATE POLICY "Medadmin manage doctors" ON public.doctors FOR ALL TO authenticated USING (has_role(auth.uid(), 'medadmin'));
+DROP POLICY IF EXISTS "Anyone view doctors" ON public.doctors;
 CREATE POLICY "Anyone view doctors" ON public.doctors FOR SELECT TO authenticated USING (true);
 
 -- event_rsvps
+DROP POLICY IF EXISTS "Anyone view rsvps" ON public.event_rsvps;
 CREATE POLICY "Anyone view rsvps" ON public.event_rsvps FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users rsvp" ON public.event_rsvps;
 CREATE POLICY "Users rsvp" ON public.event_rsvps FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users cancel rsvp" ON public.event_rsvps;
 CREATE POLICY "Users cancel rsvp" ON public.event_rsvps FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
 -- lost_found_items
+DROP POLICY IF EXISTS "Superadmin manage lost found" ON public.lost_found_items;
 CREATE POLICY "Superadmin manage lost found" ON public.lost_found_items FOR ALL TO authenticated USING (has_role(auth.uid(), 'superadmin'));
+DROP POLICY IF EXISTS "Anyone view items" ON public.lost_found_items;
 CREATE POLICY "Anyone view items" ON public.lost_found_items FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users create reports" ON public.lost_found_items;
 CREATE POLICY "Users create reports" ON public.lost_found_items FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users update own reports" ON public.lost_found_items;
 CREATE POLICY "Users update own reports" ON public.lost_found_items FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 
 -- medications
+DROP POLICY IF EXISTS "Superadmin manage medications" ON public.medications;
 CREATE POLICY "Superadmin manage medications" ON public.medications FOR ALL TO authenticated USING (has_role(auth.uid(), 'superadmin'));
+DROP POLICY IF EXISTS "Medadmin manage medications" ON public.medications;
 CREATE POLICY "Medadmin manage medications" ON public.medications FOR ALL TO authenticated USING (has_role(auth.uid(), 'medadmin'));
+DROP POLICY IF EXISTS "Anyone view medications" ON public.medications;
 CREATE POLICY "Anyone view medications" ON public.medications FOR SELECT TO authenticated USING (true);
 
 -- Resources table
@@ -180,10 +222,15 @@ CREATE TABLE IF NOT EXISTS public.resources (
 );
 ALTER TABLE public.resources ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone view resources" ON public.resources;
 CREATE POLICY "Anyone view resources" ON public.resources FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Superadmin manage resources" ON public.resources;
 CREATE POLICY "Superadmin manage resources" ON public.resources FOR ALL TO authenticated USING (has_role(auth.uid(), 'superadmin'));
+DROP POLICY IF EXISTS "Libadmin manage library resources" ON public.resources;
 CREATE POLICY "Libadmin manage library resources" ON public.resources FOR ALL TO authenticated USING (has_role(auth.uid(), 'libadmin') AND category = 'library');
+DROP POLICY IF EXISTS "Medadmin manage medical resources" ON public.resources;
 CREATE POLICY "Medadmin manage medical resources" ON public.resources FOR ALL TO authenticated USING (has_role(auth.uid(), 'medadmin') AND category = 'medical');
+DROP POLICY IF EXISTS "Clubadmin manage club resources" ON public.resources;
 CREATE POLICY "Clubadmin manage club resources" ON public.resources FOR ALL TO authenticated USING (has_role(auth.uid(), 'clubadmin') AND category = 'club');
 
 -- Indexes
