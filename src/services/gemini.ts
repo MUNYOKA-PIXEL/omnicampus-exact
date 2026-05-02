@@ -5,13 +5,11 @@ import { toolRegistry } from "./tools";
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 
 const MODELS = [
-  "gemini-1.5-flash",
-  "gemini-1.5-flash-8b",
-  "gemini-2.0-flash",
-  "gemini-1.5-pro",
+  { name: "gemini-1.5-flash", version: "v1" },
+  { name: "gemini-1.5-flash-8b", version: "v1" },
+  { name: "gemini-2.0-flash", version: "v1beta" },
+  { name: "gemini-1.5-pro", version: "v1" },
 ];
-
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 export const generateCampusResponse = async (
   userPrompt: string, 
@@ -26,6 +24,7 @@ export const generateCampusResponse = async (
 
     const context = await getCampusContext();
     
+    // ... (systemPrompt and toolDeclarations remain the same)
     const systemPrompt = `
       You are Omni-Intelligence, the official USIU-Africa Campus Agent. 
       Your goal is to help students navigate campus life efficiently.
@@ -88,12 +87,14 @@ export const generateCampusResponse = async (
     ];
 
     const lastErrors: string[] = [];
-    for (const modelName of MODELS) {
+    for (const config of MODELS) {
       try {
+        // We create a new instance with the specific API version
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ 
-          model: modelName,
+          model: config.name,
           tools: [{ functionDeclarations: toolDeclarations as any }]
-        });
+        }, { apiVersion: config.version as any });
 
         const chat = model.startChat({
           history: [
@@ -135,8 +136,8 @@ export const generateCampusResponse = async (
         return response.text();
       } catch (e: unknown) {
         const error = e as Error;
-        console.warn(`[Gemini Fallback] Model ${modelName} failed:`, error.message);
-        lastErrors.push(`${modelName}: ${error.message}`);
+        console.warn(`[Gemini Fallback] Model ${config.name} failed:`, error.message);
+        lastErrors.push(`${config.name}: ${error.message}`);
         continue; 
       }
     }
