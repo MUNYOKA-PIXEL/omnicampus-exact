@@ -4,10 +4,10 @@ import { toolRegistry } from "./tools";
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 
 const CONFIGS = [
-  { version: "v1beta", model: "gemini-1.5-flash" },
-  { version: "v1beta", model: "gemini-1.5-flash-8b" },
+  { version: "v1", model: "gemini-1.5-flash" },
+  { version: "v1", model: "gemini-1.5-flash-8b" },
   { version: "v1beta", model: "gemini-2.0-flash" },
-  { version: "v1beta", model: "gemini-1.5-pro" },
+  { version: "v1", model: "gemini-1.5-pro" },
 ];
 
 export const generateCampusResponse = async (
