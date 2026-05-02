@@ -1,14 +1,17 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getCampusContext } from "./campusContext";
 import { toolRegistry } from "./tools";
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 
-const CONFIGS = [
-  { version: "v1", model: "gemini-1.5-flash" },
-  { version: "v1", model: "gemini-1.5-flash-8b" },
-  { version: "v1beta", model: "gemini-2.0-flash" },
-  { version: "v1", model: "gemini-1.5-pro" },
+const MODELS = [
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b",
+  "gemini-2.0-flash",
+  "gemini-1.5-pro",
 ];
+
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 export const generateCampusResponse = async (
   userPrompt: string, 
@@ -17,8 +20,8 @@ export const generateCampusResponse = async (
 ) => {
   try {
     if (!GEMINI_API_KEY) {
-      console.error("[Omni-Intelligence] API Key not found in environment variables.");
-      return "Gemini API Key is missing. Please ensure VITE_GEMINI_API_KEY is in your .env file AND you have RESTARTED your dev server (npm run dev).";
+      console.error("[Omni-Intelligence] API Key not found.");
+      return "The AI Agent's API Key is missing. Please contact your USIU system administrator.";
     }
 
     const context = await getCampusContext();
@@ -47,123 +50,102 @@ export const generateCampusResponse = async (
       7. NEVER ask the student for their Student ID or UUID. You have silent access to it.
     `;
 
-    const tools = [
+    const toolDeclarations = [
       {
-        function_declarations: [
-          {
-            name: "countAppointments",
-            description: "Get the count of appointments for the current user.",
-            parameters: { type: "object", properties: {} }
+        name: "countAppointments",
+        description: "Get the count of appointments for the current user.",
+        parameters: { type: "OBJECT", properties: {} }
+      },
+      {
+        name: "readAppointments",
+        description: "Retrieve a list of upcoming appointments for the current user.",
+        parameters: { type: "OBJECT", properties: {} }
+      },
+      {
+        name: "insertAppointment",
+        description: "Books a new medical appointment for the student.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            doctor_id: { type: "STRING", description: "The doctor's UUID." },
+            date: { type: "STRING", description: "Appointment date (YYYY-MM-DD)." },
+            time: { type: "STRING", description: "Appointment time (e.g., '10:00 AM')." },
+            reason: { type: "STRING", description: "Optional reason for the visit." }
           },
-          {
-            name: "readAppointments",
-            description: "Retrieve a list of upcoming appointments for the current user.",
-            parameters: { type: "object", properties: {} }
-          },
-          {
-            name: "insertAppointment",
-            description: "Books a new medical appointment for the student.",
-            parameters: {
-              type: "object",
-              properties: {
-                doctor_id: { type: "string", description: "The doctor's UUID." },
-                date: { type: "string", description: "Appointment date (YYYY-MM-DD)." },
-                time: { type: "string", description: "Appointment time (e.g., '10:00 AM')." },
-                reason: { type: "string", description: "Optional reason for the visit." }
-              },
-              required: ["doctor_id", "date", "time"]
-            }
-          },
-          {
-            name: "countCourses",
-            description: "Get the total number of available courses at USIU-Africa.",
-            parameters: { type: "object", properties: {} }
-          },
-          {
-            name: "readCourses",
-            description: "List available courses in the USIU-Africa catalog.",
-            parameters: { type: "object", properties: {} }
-          }
-        ]
+          required: ["doctor_id", "date", "time"]
+        }
+      },
+      {
+        name: "countCourses",
+        description: "Get the total number of available courses at USIU-Africa.",
+        parameters: { type: "OBJECT", properties: {} }
+      },
+      {
+        name: "readCourses",
+        description: "List available courses in the USIU-Africa catalog.",
+        parameters: { type: "OBJECT", properties: {} }
       }
     ];
 
     const lastErrors: string[] = [];
-    for (const config of CONFIGS) {
+    for (const modelName of MODELS) {
       try {
-        const url = `https://generativelanguage.googleapis.com/${config.version}/models/${config.model}:generateContent?key=${GEMINI_API_KEY}`;
-        
-        const initialRequest = {
-          contents: [{ parts: [{ text: systemPrompt + "\n\nUser Question: " + userPrompt }] }],
-          tools: tools
-        };
-
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(initialRequest)
+        const model = genAI.getGenerativeModel({ 
+          model: modelName,
+          tools: [{ functionDeclarations: toolDeclarations as any }]
         });
 
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error?.message || "Gemini API Error");
+        const chat = model.startChat({
+          history: [
+            {
+              role: "user",
+              parts: [{ text: systemPrompt }],
+            },
+            {
+              role: "model",
+              parts: [{ text: "Understood. I am Omni-Intelligence, and I am ready to assist USIU students using the campus records." }],
+            },
+          ],
+        });
 
-        const candidate = data.candidates?.[0];
-        const part = candidate?.content?.parts?.[0];
+        const result = await chat.sendMessage(userPrompt);
+        const response = result.response;
+        const part = response.candidates?.[0]?.content?.parts?.[0];
 
-        // Handle Function Calling
         if (part?.functionCall) {
           const { name, args } = part.functionCall;
           const toolFn = toolRegistry[name];
           
           if (toolFn) {
-            // Silently inject userId into the tool call
             const toolResult = await toolFn(userId || "", args);
             
-            // Second call to provide the result back to Gemini
-            const secondResponse = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [
-                  { parts: [{ text: systemPrompt + "\n\nUser Question: " + userPrompt }] },
-                  candidate.content,
-                  {
-                    parts: [{
-                      functionResponse: {
-                        name: name,
-                        response: { content: toolResult }
-                      }
-                    }]
-                  }
-                ],
-                tools: tools
-              })
-            });
-
-            const finalData = await secondResponse.json();
-            if (secondResponse.ok) {
-              return finalData.candidates[0].content.parts[0].text;
-            }
+            const secondResult = await chat.sendMessage([
+              {
+                functionResponse: {
+                  name: name,
+                  response: { content: toolResult }
+                }
+              }
+            ]);
+            
+            return secondResult.response.text();
           }
         }
 
-        if (part?.text) {
-          return part.text;
-        }
-        
-        lastErrors.push(`${config.model}: No valid part returned`);
+        return response.text();
       } catch (e: unknown) {
         const error = e as Error;
-        lastErrors.push(`${config.model}: ${error.message}`);
+        console.warn(`[Gemini Fallback] Model ${modelName} failed:`, error.message);
+        lastErrors.push(`${modelName}: ${error.message}`);
         continue; 
       }
     }
 
-    throw new Error(`All models failed. Last error: ${lastErrors[0]}`);
+    throw new Error(`All AI models failed. Last error: ${lastErrors[0]}`);
     
   } catch (error: unknown) {
     const err = error as Error;
-    console.error("[USIU Campus Agent] Error:", err);
-    return `Connection Error: ${err.message || "Something went wrong"}. I'm having trouble accessing USIU campus data right now.`;
+    console.error("[USIU Campus Agent] Final Error:", err);
+    return `Connection Error: ${err.message}. I'm having trouble accessing USIU campus data right now. Please try again later.`;
   }
 };
